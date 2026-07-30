@@ -14,6 +14,22 @@ export interface RecordDoseEventDto {
   idempotencyKey: string;
 }
 
+export interface TreatmentInsightQueryDto {
+  windowDays?: string;
+  lowInventoryDays?: string;
+  expirationWarningDays?: string;
+  asOf?: string;
+}
+
+export function parseOptionalInsightInteger(
+  value: string | undefined,
+  label: string,
+): number | undefined {
+  if (value === undefined) return undefined;
+  if (!/^\d+$/.test(value)) throw new Error(`${label} must be an integer`);
+  return Number(value);
+}
+
 export function parseLifecycleDate(
   value: string | null | undefined,
   label: string,

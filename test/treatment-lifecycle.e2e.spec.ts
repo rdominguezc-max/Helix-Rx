@@ -6,6 +6,7 @@ import type { AuthenticatedRequestContext } from '../src/modules/auth/http/authe
 import { FirebaseBearerAuthGuard } from '../src/modules/auth/http/firebase-bearer-auth.guard';
 import { PermissionsGuard } from '../src/modules/auth/http/permissions.guard';
 import { ChangeTreatmentStatusUseCase } from '../src/modules/medications/application/change-treatment-status.use-case';
+import { GetTreatmentInsightUseCase } from '../src/modules/medications/application/get-treatment-insight.use-case';
 import { ListDoseEventsUseCase } from '../src/modules/medications/application/list-dose-events.use-case';
 import { RecordDoseEventUseCase } from '../src/modules/medications/application/record-dose-event.use-case';
 import { TreatmentLifecycleController } from '../src/modules/medications/http/treatment-lifecycle.controller';
@@ -103,6 +104,51 @@ describe('Treatment Lifecycle API Boundary', () => {
     expect(response.body.message).toContain('scheduledFor must be valid');
     await app.close();
   });
+
+  it('returns treatment insight with parsed projection options', async () => {
+    const commands: unknown[] = [];
+    const app = await createTestApp(true, commands);
+
+    const response = await request(app.getHttpServer())
+      .get(
+        `/api/v1/patients/${patientId}/treatments/${treatmentId}/insight`,
+      )
+      .query({
+        windowDays: '14',
+        lowInventoryDays: '5',
+        expirationWarningDays: '20',
+        asOf: scheduledFor,
+      })
+      .expect(200);
+
+    expect(response.body.inventory).toMatchObject({
+      estimatedDaysRemaining: 5,
+      riskLevel: 'medium',
+    });
+    expect(commands[0]).toMatchObject({
+      patientId,
+      treatmentId,
+      organizationId,
+      windowDays: 14,
+      lowInventoryDays: 5,
+      expirationWarningDays: 20,
+    });
+    await app.close();
+  });
+
+  it('rejects non-integer insight options', async () => {
+    const app = await createTestApp(true);
+
+    const response = await request(app.getHttpServer())
+      .get(
+        `/api/v1/patients/${patientId}/treatments/${treatmentId}/insight`,
+      )
+      .query({ windowDays: '7.5' })
+      .expect(400);
+
+    expect(response.body.message).toContain('windowDays must be an integer');
+    await app.close();
+  });
 });
 
 async function createTestApp(
@@ -165,6 +211,42 @@ async function createTestApp(
       {
         provide: ListDoseEventsUseCase,
         useValue: { execute: async () => [] },
+      },
+      {
+        provide: GetTreatmentInsightUseCase,
+        useValue: {
+          execute: async (command: unknown) => {
+            commands.push(command);
+            return {
+              patientId,
+              organizationId,
+              treatmentId,
+              asOf: new Date(scheduledFor),
+              adherence: {
+                windowStartsAt: new Date(scheduledFor),
+                windowEndsAt: new Date(scheduledFor),
+                recordedEvents: 10,
+                confirmedDoses: 8,
+                omittedDoses: 2,
+                cancelledDoses: 0,
+                adherenceRate: 0.8,
+                onTimeDoses: 7,
+                punctualityRate: 0.875,
+              },
+              inventory: {
+                totalAdministrationUnits: 15,
+                prescribedDoseCoverage: 15000,
+                estimatedDosesRemaining: 10,
+                expectedDosesPerDay: 2,
+                estimatedDaysRemaining: 5,
+                estimatedDepletionAt: new Date(scheduledFor),
+                nextExpirationOn: null,
+                riskLevel: 'medium',
+              },
+              alerts: [],
+            };
+          },
+        },
       },
     ],
   })

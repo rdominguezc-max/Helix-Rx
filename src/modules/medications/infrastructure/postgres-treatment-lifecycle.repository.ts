@@ -12,6 +12,9 @@ import type {
 import type {
   ChangeTreatmentStatusData,
   RecordDoseEventData,
+  TreatmentInsightDoseSummary,
+  TreatmentInsightInventoryLot,
+  TreatmentInsightSource,
   TreatmentLifecycleRepository,
 } from '../domain/treatment-lifecycle.repository';
 
@@ -22,6 +25,9 @@ interface TreatmentRow {
   medication_id: string;
   dose_amount: string;
   dose_unit: string;
+  frequency_interval_hours: string | null;
+  administration_times: unknown;
+  is_as_needed: boolean;
   status: TreatmentStatus;
 }
 
@@ -67,6 +73,19 @@ interface AllocationRow {
   prescribed_amount_covered: string;
   administration_units_consumed: string;
   created_at: Date;
+}
+
+interface DoseSummaryRow {
+  event_status: MedicationDoseEvent['eventStatus'];
+  timing_status: MedicationDoseEvent['timingStatus'];
+  event_count: string;
+}
+
+interface InsightInventoryRow {
+  id: string;
+  quantity_remaining: string;
+  strength_amount: string;
+  expires_on: Date | string | null;
 }
 
 const allowedTransitions: Record<TreatmentStatus, TreatmentStatus[]> = {
@@ -141,7 +160,8 @@ export class PostgresTreatmentLifecycleRepository
     return this.databaseService.transaction(async (executor) => {
       const treatmentResult = await executor.query<TreatmentRow>(
         `SELECT id, patient_id, organization_id, medication_id,
-                dose_amount, dose_unit, status
+                dose_amount, dose_unit, frequency_interval_hours,
+                administration_times, is_as_needed, status
          FROM patient_treatments
          WHERE id = $1 AND patient_id = $2 AND organization_id = $3
            AND deleted_at IS NULL
@@ -206,7 +226,8 @@ export class PostgresTreatmentLifecycleRepository
 
       const treatmentResult = await executor.query<TreatmentRow>(
         `SELECT id, patient_id, organization_id, medication_id,
-                dose_amount, dose_unit, status
+                dose_amount, dose_unit, frequency_interval_hours,
+                administration_times, is_as_needed, status
          FROM patient_treatments
          WHERE id = $1 AND patient_id = $2 AND organization_id = $3
            AND deleted_at IS NULL
@@ -362,6 +383,101 @@ export class PostgresTreatmentLifecycleRepository
     return Promise.all(
       result.rows.map((row) => this.loadDoseEvent(row, this.databaseService)),
     );
+  }
+
+  async getTreatmentInsightSource(
+    patientId: string,
+    organizationId: string,
+    treatmentId: string,
+    windowStartsAt: Date,
+    windowEndsAt: Date,
+  ): Promise<TreatmentInsightSource> {
+    const treatmentResult = await this.databaseService.query<TreatmentRow>(
+      `SELECT id, patient_id, organization_id, medication_id,
+              dose_amount, dose_unit, frequency_interval_hours,
+              administration_times, is_as_needed, status
+       FROM patient_treatments
+       WHERE id = $1 AND patient_id = $2 AND organization_id = $3
+         AND deleted_at IS NULL`,
+      [treatmentId, patientId, organizationId],
+    );
+    const treatment = treatmentResult.rows[0];
+    if (!treatment) throw new Error('treatment not found');
+
+    const [doseResult, inventoryResult] = await Promise.all([
+      this.databaseService.query<DoseSummaryRow>(
+        `SELECT event_status, timing_status, count(*)::text AS event_count
+         FROM medication_dose_events
+         WHERE patient_treatment_id = $1
+           AND patient_id = $2 AND organization_id = $3
+           AND scheduled_for >= $4 AND scheduled_for <= $5
+         GROUP BY event_status, timing_status`,
+        [
+          treatmentId,
+          patientId,
+          organizationId,
+          windowStartsAt,
+          windowEndsAt,
+        ],
+      ),
+      this.databaseService.query<InsightInventoryRow>(
+        `SELECT lot.id, lot.quantity_remaining,
+                presentation.strength_amount, lot.expires_on
+         FROM patient_medication_inventory_lots lot
+         JOIN medication_presentations presentation
+           ON presentation.id = lot.presentation_id
+         WHERE lot.patient_id = $1 AND lot.organization_id = $2
+           AND presentation.medication_id = $3
+           AND lower(presentation.strength_unit) = lower($4)
+           AND lot.status = 'active' AND lot.quantity_remaining > 0
+           AND (lot.expires_on IS NULL OR lot.expires_on >= $5::date)
+           AND lot.deleted_at IS NULL AND presentation.deleted_at IS NULL
+         ORDER BY lot.expires_on NULLS LAST, lot.acquired_at, lot.id`,
+        [
+          patientId,
+          organizationId,
+          treatment.medication_id,
+          treatment.dose_unit,
+          windowEndsAt,
+        ],
+      ),
+    ]);
+
+    const administrationTimes = Array.isArray(treatment.administration_times)
+      ? treatment.administration_times
+      : [];
+    const doseSummaries: TreatmentInsightDoseSummary[] = doseResult.rows.map(
+      (row) => ({
+        eventStatus: row.event_status,
+        timingStatus: row.timing_status,
+        count: Number(row.event_count),
+      }),
+    );
+    const inventoryLots: TreatmentInsightInventoryLot[] =
+      inventoryResult.rows.map((row) => ({
+        id: row.id,
+        quantityRemaining: Number(row.quantity_remaining),
+        strengthAmount: Number(row.strength_amount),
+        expiresOn:
+          row.expires_on === null ? null : new Date(row.expires_on),
+      }));
+
+    return {
+      patientId,
+      organizationId,
+      treatmentId,
+      treatmentStatus: treatment.status,
+      doseAmount: Number(treatment.dose_amount),
+      doseUnit: treatment.dose_unit,
+      frequencyIntervalHours:
+        treatment.frequency_interval_hours === null
+          ? null
+          : Number(treatment.frequency_interval_hours),
+      administrationTimesCount: administrationTimes.length,
+      isAsNeeded: treatment.is_as_needed,
+      doseSummaries,
+      inventoryLots,
+    };
   }
 
   private async loadDoseEvent(

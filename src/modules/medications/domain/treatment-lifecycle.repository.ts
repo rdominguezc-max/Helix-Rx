@@ -1,9 +1,37 @@
 import type { TreatmentStatus } from './medication.entity';
 import type {
   DoseEventStatus,
+  DoseTimingStatus,
   MedicationDoseEvent,
   TreatmentStatusEvent,
 } from './treatment-lifecycle.entity';
+
+export interface TreatmentInsightDoseSummary {
+  eventStatus: DoseEventStatus;
+  timingStatus: DoseTimingStatus | null;
+  count: number;
+}
+
+export interface TreatmentInsightInventoryLot {
+  id: string;
+  quantityRemaining: number;
+  strengthAmount: number;
+  expiresOn: Date | null;
+}
+
+export interface TreatmentInsightSource {
+  patientId: string;
+  organizationId: string;
+  treatmentId: string;
+  treatmentStatus: TreatmentStatus;
+  doseAmount: number;
+  doseUnit: string;
+  frequencyIntervalHours: number | null;
+  administrationTimesCount: number;
+  isAsNeeded: boolean;
+  doseSummaries: TreatmentInsightDoseSummary[];
+  inventoryLots: TreatmentInsightInventoryLot[];
+}
 
 export interface ChangeTreatmentStatusData {
   patientId: string;
@@ -34,6 +62,13 @@ export interface TreatmentLifecycleRepository {
     organizationId: string,
     treatmentId: string,
   ): Promise<MedicationDoseEvent[]>;
+  getTreatmentInsightSource(
+    patientId: string,
+    organizationId: string,
+    treatmentId: string,
+    windowStartsAt: Date,
+    windowEndsAt: Date,
+  ): Promise<TreatmentInsightSource>;
 }
 
 export const TREATMENT_LIFECYCLE_REPOSITORY = Symbol(

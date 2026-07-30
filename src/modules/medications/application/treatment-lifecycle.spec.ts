@@ -7,9 +7,11 @@ import type {
 import type {
   ChangeTreatmentStatusData,
   RecordDoseEventData,
+  TreatmentInsightSource,
   TreatmentLifecycleRepository,
 } from '../domain/treatment-lifecycle.repository';
 import { ChangeTreatmentStatusUseCase } from './change-treatment-status.use-case';
+import { GetTreatmentInsightUseCase } from './get-treatment-insight.use-case';
 import { ListDoseEventsUseCase } from './list-dose-events.use-case';
 import { RecordDoseEventUseCase } from './record-dose-event.use-case';
 
@@ -23,6 +25,31 @@ const now = new Date('2026-07-30T15:00:00.000Z');
 class LifecycleRepositoryFixture implements TreatmentLifecycleRepository {
   status: ChangeTreatmentStatusData['newStatus'] = 'active';
   doseEvents: MedicationDoseEvent[] = [];
+  insightSource: TreatmentInsightSource = {
+    patientId,
+    organizationId,
+    treatmentId,
+    treatmentStatus: 'active',
+    doseAmount: 1500,
+    doseUnit: 'mg',
+    frequencyIntervalHours: 12,
+    administrationTimesCount: 2,
+    isAsNeeded: false,
+    doseSummaries: [
+      { eventStatus: 'confirmed', timingStatus: 'on_time', count: 7 },
+      { eventStatus: 'confirmed', timingStatus: 'late', count: 1 },
+      { eventStatus: 'omitted', timingStatus: null, count: 2 },
+      { eventStatus: 'cancelled', timingStatus: null, count: 1 },
+    ],
+    inventoryLots: [
+      {
+        id: '88888888-8888-4888-8888-888888888888',
+        quantityRemaining: 15,
+        strengthAmount: 1000,
+        expiresOn: new Date('2026-08-15T00:00:00.000Z'),
+      },
+    ],
+  };
 
   async changeStatus(
     data: ChangeTreatmentStatusData,
@@ -85,6 +112,10 @@ class LifecycleRepositoryFixture implements TreatmentLifecycleRepository {
 
   async listDoseEvents(): Promise<MedicationDoseEvent[]> {
     return this.doseEvents;
+  }
+
+  async getTreatmentInsightSource(): Promise<TreatmentInsightSource> {
+    return this.insightSource;
   }
 }
 
@@ -252,5 +283,107 @@ describe('Treatment lifecycle', () => {
 
     expect(events).toHaveLength(1);
     expect(events[0].eventStatus).toBe('cancelled');
+  });
+});
+
+describe('Treatment inventory risk and adherence insight', () => {
+  it('calculates recorded adherence and punctuality rates', async () => {
+    const insight = await new GetTreatmentInsightUseCase(
+      new LifecycleRepositoryFixture(),
+    ).execute({
+      patientId,
+      organizationId,
+      treatmentId,
+      asOf: now,
+    });
+
+    expect(insight.adherence).toMatchObject({
+      recordedEvents: 11,
+      confirmedDoses: 8,
+      omittedDoses: 2,
+      cancelledDoses: 1,
+      adherenceRate: 0.8,
+      onTimeDoses: 7,
+      punctualityRate: 0.875,
+    });
+  });
+
+  it('projects coverage from compatible inventory and flags low stock', async () => {
+    const insight = await new GetTreatmentInsightUseCase(
+      new LifecycleRepositoryFixture(),
+    ).execute({
+      patientId,
+      organizationId,
+      treatmentId,
+      asOf: now,
+    });
+
+    expect(insight.inventory).toMatchObject({
+      totalAdministrationUnits: 15,
+      prescribedDoseCoverage: 15000,
+      estimatedDosesRemaining: 10,
+      expectedDosesPerDay: 2,
+      estimatedDaysRemaining: 5,
+      riskLevel: 'medium',
+    });
+    expect(insight.inventory.estimatedDepletionAt?.toISOString()).toBe(
+      '2026-08-04T15:00:00.000Z',
+    );
+    expect(insight.alerts.map((alert) => alert.type)).toEqual([
+      'inventory_low',
+      'inventory_expiring',
+    ]);
+  });
+
+  it('reports critical risk when compatible inventory is depleted', async () => {
+    const repository = new LifecycleRepositoryFixture();
+    repository.insightSource = {
+      ...repository.insightSource,
+      inventoryLots: [],
+    };
+
+    const insight = await new GetTreatmentInsightUseCase(repository).execute({
+      patientId,
+      organizationId,
+      treatmentId,
+      asOf: now,
+    });
+
+    expect(insight.inventory.riskLevel).toBe('critical');
+    expect(insight.alerts[0].type).toBe('inventory_depleted');
+  });
+
+  it('does not invent daily coverage for PRN treatments', async () => {
+    const repository = new LifecycleRepositoryFixture();
+    repository.insightSource = {
+      ...repository.insightSource,
+      isAsNeeded: true,
+      frequencyIntervalHours: null,
+      administrationTimesCount: 0,
+    };
+
+    const insight = await new GetTreatmentInsightUseCase(repository).execute({
+      patientId,
+      organizationId,
+      treatmentId,
+      asOf: now,
+    });
+
+    expect(insight.inventory.expectedDosesPerDay).toBeNull();
+    expect(insight.inventory.estimatedDaysRemaining).toBeNull();
+    expect(insight.inventory.riskLevel).toBe('unknown');
+  });
+
+  it('rejects insight windows outside the supported range', async () => {
+    await expect(
+      new GetTreatmentInsightUseCase(
+        new LifecycleRepositoryFixture(),
+      ).execute({
+        patientId,
+        organizationId,
+        treatmentId,
+        windowDays: 0,
+      }),
+    ).rejects.toThrow('windowDays must be an integer between 1 and 365');
   });
 });

@@ -3,6 +3,7 @@ import { AuditModule } from '../audit/audit.module';
 import { AddInventoryLotUseCase } from './application/add-inventory-lot.use-case';
 import { ChangeTreatmentStatusUseCase } from './application/change-treatment-status.use-case';
 import { DoseConversionService } from './application/dose-conversion.service';
+import { GetTreatmentInsightUseCase } from './application/get-treatment-insight.use-case';
 import { ListInventoryLotsUseCase } from './application/list-inventory-lots.use-case';
 import { ListDoseEventsUseCase } from './application/list-dose-events.use-case';
 import { RecordInventoryMovementUseCase } from './application/record-inventory-movement.use-case';
@@ -41,6 +42,7 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     ListInventoryLotsUseCase,
     RecordInventoryMovementUseCase,
     DoseConversionService,
+    GetTreatmentInsightUseCase,
     ChangeTreatmentStatusUseCase,
     RecordDoseEventUseCase,
     ListDoseEventsUseCase,
