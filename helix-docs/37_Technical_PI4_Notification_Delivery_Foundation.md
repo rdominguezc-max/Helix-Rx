@@ -1,0 +1,162 @@
+# PI-4 - Notification Delivery Foundation
+
+**Proyecto:** helix
+
+**Estado:** Implementado y validado
+
+**Fecha:** 30 de julio de 2026
+
+---
+
+# Resultado
+
+Se implemento la primera base del Reminder & Notification Engine:
+
+* preferencias explicitas por paciente y organizacion;
+* canales `push`, `email` y `sms`;
+* anticipacion configurable del recordatorio;
+* preparacion idempotente desde dosis esperadas;
+* outbox neutral al proveedor;
+* reclamacion concurrente con `FOR UPDATE SKIP LOCKED`;
+* lease recuperable para trabajadores;
+* token unico por reclamacion;
+* ledger inmutable de entregas;
+* cancelacion de trabajos pendientes al pausar preferencias;
+* cancelacion de canales removidos;
+* cancelacion del recordatorio cuando la dosis ya tiene resultado.
+
+# Alcance
+
+Esta base no envia mensajes reales. No contiene credenciales, SDKs ni payloads
+de proveedores.
+
+El objetivo es separar:
+
+1. la decision de que notificar;
+2. la reclamacion segura del trabajo;
+3. el adaptador del proveedor;
+4. el resultado reportado por el proveedor.
+
+# Preferencias
+
+Cada paciente puede configurar:
+
+* `enabledChannels`;
+* `reminderLeadMinutes`, de 0 a 1440;
+* estado `active` o `paused`.
+
+La configuracion requiere que el paciente tenga membresia activa en la
+organizacion.
+
+# Trabajos
+
+Tipo inicial:
+
+* `dose_reminder`.
+
+Estados:
+
+* `pending`;
+* `processing`;
+* `sent`;
+* `failed`;
+* `cancelled`.
+
+La combinacion dosis esperada, tipo y canal es unica. Preparar la misma ventana
+varias veces no duplica recordatorios.
+
+# Reclamacion
+
+Un trabajador reclama hasta 100 trabajos vencidos. Cada reclamacion:
+
+* bloquea filas con `SKIP LOCKED`;
+* genera un `claimToken`;
+* registra trabajador y fecha;
+* incrementa intentos;
+* establece un lease de 30 a 3600 segundos.
+
+Un trabajo `processing` puede reclamarse de nuevo cuando vence el lease.
+
+# Entregas
+
+Estados reportables:
+
+* `accepted`;
+* `delivered`;
+* `failed`.
+
+Cada evento conserva proveedor, identificador externo opcional, error y fecha.
+Una entrega solo se acepta con un token de reclamacion activo. El token no puede
+reutilizarse despues de finalizar el trabajo.
+
+# API
+
+* `PUT /api/v1/patients/:patientId/notifications/preference`
+* `GET /api/v1/patients/:patientId/notifications/preference`
+* `POST /api/v1/patients/:patientId/notifications/jobs/prepare`
+* `POST /api/v1/patients/:patientId/notifications/jobs/claim`
+* `POST /api/v1/patients/:patientId/notifications/jobs/:notificationJobId/deliveries`
+
+Temporalmente estos endpoints reutilizan `medications.read` y
+`medications.write`, porque el flujo nace de dosis esperadas. PI-4 debera
+introducir permisos dedicados antes de exponer trabajadores externos.
+
+# Persistencia
+
+Migracion:
+
+* `013_notification_delivery_foundation.sql`
+
+Tablas:
+
+* `patient_notification_preferences`;
+* `notification_jobs`;
+* `notification_delivery_events`.
+
+# Seguridad De Escalamiento
+
+No se implemento escalamiento automatico a contactos de emergencia. El modelo
+actual permite indicar `can_receive_alerts`, pero no vincula el contacto con un
+consentimiento de notificaciones verificable.
+
+Antes de notificar a terceros se requiere:
+
+* identidad estable del destinatario;
+* canal y destino verificados;
+* consentimiento activo con scope de notificaciones;
+* reglas de revocacion;
+* auditoria del motivo de escalamiento.
+
+# Validacion
+
+PostgreSQL 17 valido:
+
+* migracion `013`;
+* preferencias con membresia;
+* preparacion multicanal;
+* deduplicacion;
+* reclamacion con lease;
+* registro de entrega;
+* rechazo de token reutilizado;
+* limpieza completa de datos temporales.
+
+CI aprobo:
+
+* lint;
+* typecheck;
+* build;
+* 37 archivos de pruebas;
+* 135 pruebas.
+
+# Siguiente Incremento
+
+**Provider Adapters And Verified Destinations**
+
+Debe incluir:
+
+* destinos verificados sin copiarlos al payload del trabajo;
+* adaptador push inicial;
+* reintentos con backoff y limite;
+* webhooks idempotentes del proveedor;
+* permisos dedicados `notifications.read` y `notifications.write`;
+* modelo verificable de consentimiento para terceros.

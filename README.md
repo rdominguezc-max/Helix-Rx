@@ -31,6 +31,7 @@ Incluye:
 * PI-3 conversion de dosis e inventario transaccional del paciente.
 * Ciclo de tratamientos, consumo automatico FEFO, riesgo de desabasto y adherencia registrada.
 * Dosis esperadas por zona horaria y adherencia contra el plan completo.
+* Preferencias y outbox neutral al proveedor para recordatorios de dosis.
 * CI preparado con GitHub Actions.
 * Cloud Run preparado mediante baseline documental/manifiesto.
 
@@ -162,7 +163,7 @@ No se realiza despliegue real en Sprint 1.
 ## Limitaciones Actuales
 
 * Docker Desktop y PostgreSQL 17 fueron validados en runtime local.
-* Las migraciones `001` a `012` fueron ejecutadas correctamente contra PostgreSQL real.
+* Las migraciones `001` a `013` fueron ejecutadas correctamente contra PostgreSQL real.
 * Cloud Run contiene placeholders.
 * No existe frontend.
 * No existen modulos clinicos posteriores a Patient.

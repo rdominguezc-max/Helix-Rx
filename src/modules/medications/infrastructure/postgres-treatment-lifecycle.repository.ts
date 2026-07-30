@@ -275,15 +275,22 @@ export class PostgresTreatmentLifecycleRepository
       const event = eventResult.rows[0];
 
       await executor.query(
-        `UPDATE medication_expected_doses
-         SET status = CASE
-               WHEN $3 = 'cancelled' THEN 'cancelled'
-               ELSE 'fulfilled'
-             END,
-             medication_dose_event_id = $4,
-             updated_at = now()
-         WHERE patient_treatment_id = $1 AND scheduled_for = $2
-           AND medication_dose_event_id IS NULL`,
+        `WITH resolved AS (
+           UPDATE medication_expected_doses
+           SET status = CASE
+                 WHEN $3 = 'cancelled' THEN 'cancelled'
+                 ELSE 'fulfilled'
+               END,
+               medication_dose_event_id = $4,
+               updated_at = now()
+           WHERE patient_treatment_id = $1 AND scheduled_for = $2
+             AND medication_dose_event_id IS NULL
+           RETURNING id
+         )
+         UPDATE notification_jobs
+         SET status = 'cancelled', updated_at = now()
+         WHERE expected_dose_id IN (SELECT id FROM resolved)
+           AND status = 'pending'`,
         [treatment.id, data.scheduledFor, data.eventStatus, event.id],
       );
 

@@ -2,12 +2,17 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AddInventoryLotUseCase } from './application/add-inventory-lot.use-case';
 import { ChangeTreatmentStatusUseCase } from './application/change-treatment-status.use-case';
+import { ClaimNotificationJobsUseCase } from './application/claim-notification-jobs.use-case';
 import { DoseConversionService } from './application/dose-conversion.service';
 import { GenerateExpectedDosesUseCase } from './application/generate-expected-doses.use-case';
+import { GetNotificationPreferenceUseCase } from './application/get-notification-preference.use-case';
 import { GetTreatmentInsightUseCase } from './application/get-treatment-insight.use-case';
 import { ListInventoryLotsUseCase } from './application/list-inventory-lots.use-case';
 import { ListDoseEventsUseCase } from './application/list-dose-events.use-case';
 import { ListExpectedDosesUseCase } from './application/list-expected-doses.use-case';
+import { PrepareNotificationJobsUseCase } from './application/prepare-notification-jobs.use-case';
+import { RecordNotificationDeliveryUseCase } from './application/record-notification-delivery.use-case';
+import { SetNotificationPreferenceUseCase } from './application/set-notification-preference.use-case';
 import { RecordInventoryMovementUseCase } from './application/record-inventory-movement.use-case';
 import { RecordDoseEventUseCase } from './application/record-dose-event.use-case';
 import { CreateMedicationUseCase } from './application/create-medication.use-case';
@@ -18,14 +23,17 @@ import { ListPatientTreatmentsUseCase } from './application/list-patient-treatme
 import { ListPresentationsUseCase } from './application/list-presentations.use-case';
 import { MEDICATION_INVENTORY_REPOSITORY } from './domain/medication-inventory.repository';
 import { MEDICATION_REPOSITORY } from './domain/medication.repository';
+import { NOTIFICATION_REPOSITORY } from './domain/notification.repository';
 import { EXPECTED_DOSE_REPOSITORY } from './domain/expected-dose.repository';
 import { TREATMENT_LIFECYCLE_REPOSITORY } from './domain/treatment-lifecycle.repository';
 import { MedicationInventoryController } from './http/medication-inventory.controller';
 import { MedicationsController } from './http/medications.controller';
+import { NotificationController } from './http/notification.controller';
 import { ExpectedDoseController } from './http/expected-dose.controller';
 import { TreatmentLifecycleController } from './http/treatment-lifecycle.controller';
 import { PostgresMedicationInventoryRepository } from './infrastructure/postgres-medication-inventory.repository';
 import { PostgresMedicationRepository } from './infrastructure/postgres-medication.repository';
+import { PostgresNotificationRepository } from './infrastructure/postgres-notification.repository';
 import { PostgresExpectedDoseRepository } from './infrastructure/postgres-expected-dose.repository';
 import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-treatment-lifecycle.repository';
 
@@ -36,6 +44,7 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     MedicationInventoryController,
     TreatmentLifecycleController,
     ExpectedDoseController,
+    NotificationController,
   ],
   providers: [
     CreateMedicationUseCase,
@@ -51,6 +60,11 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     GetTreatmentInsightUseCase,
     GenerateExpectedDosesUseCase,
     ListExpectedDosesUseCase,
+    SetNotificationPreferenceUseCase,
+    GetNotificationPreferenceUseCase,
+    PrepareNotificationJobsUseCase,
+    ClaimNotificationJobsUseCase,
+    RecordNotificationDeliveryUseCase,
     ChangeTreatmentStatusUseCase,
     RecordDoseEventUseCase,
     ListDoseEventsUseCase,
@@ -69,6 +83,10 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     {
       provide: EXPECTED_DOSE_REPOSITORY,
       useClass: PostgresExpectedDoseRepository,
+    },
+    {
+      provide: NOTIFICATION_REPOSITORY,
+      useClass: PostgresNotificationRepository,
     },
   ],
 })

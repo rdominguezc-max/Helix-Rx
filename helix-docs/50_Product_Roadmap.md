@@ -132,7 +132,7 @@ Administrar tratamientos, no solamente recordatorios.
 
 # PI-4 — Reminder & Notification Engine
 
-**Estado:** Planeado
+**Estado:** En progreso
 
 ## Objetivos
 
