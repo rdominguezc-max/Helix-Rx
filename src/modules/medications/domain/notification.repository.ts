@@ -60,6 +60,7 @@ export interface RecordNotificationDeliveryData {
   errorCode?: string | null;
   detail?: string | null;
   occurredAt?: Date | null;
+  retryAt?: Date | null;
 }
 
 export interface NotificationRepository {

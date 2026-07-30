@@ -124,6 +124,7 @@ class NotificationRepositoryFixture implements NotificationRepository {
       detail: data.detail ?? null,
       occurredAt: data.occurredAt ?? now,
       recordedAt: now,
+      retryScheduledAt: data.retryAt ?? null,
     };
   }
 }
@@ -146,6 +147,9 @@ function jobFixture(overrides: Partial<NotificationJob> = {}): NotificationJob {
     claimedAt: null,
     leaseExpiresAt: null,
     attemptCount: 0,
+    maxAttempts: 5,
+    nextAttemptAt: now,
+    exhaustedAt: null,
     lastError: null,
     createdAt: now,
     updatedAt: now,

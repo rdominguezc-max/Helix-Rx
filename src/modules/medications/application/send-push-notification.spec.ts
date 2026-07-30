@@ -25,6 +25,9 @@ const job: NotificationJob = {
   claimedAt: new Date('2026-07-30T15:00:00Z'),
   leaseExpiresAt: new Date('2026-07-30T15:05:00Z'),
   attemptCount: 1,
+  maxAttempts: 5,
+  nextAttemptAt: new Date('2026-07-30T15:00:00Z'),
+  exhaustedAt: null,
   lastError: null,
   createdAt: new Date('2026-07-30T14:00:00Z'),
   updatedAt: new Date('2026-07-30T15:00:00Z'),
@@ -81,8 +84,34 @@ describe('SendPushNotificationUseCase', () => {
     expect(deliveries[0]).toMatchObject({
       deliveryStatus: 'failed',
       errorCode: 'messaging/registration-token-not-registered',
+      retryAt: null,
     });
     expect(deliveries[0].detail).toContain('[redacted]');
+  });
+
+  it('schedules exponential retry for a transient FCM failure', async () => {
+    const deliveries: RecordNotificationDeliveryData[] = [];
+    const provider: PushNotificationProvider = {
+      send: async () => {
+        const error = new Error('provider temporarily unavailable');
+        Object.assign(error, { code: 'messaging/server-unavailable' });
+        throw error;
+      },
+    };
+    const before = Date.now();
+
+    await new SendPushNotificationUseCase(
+      provider,
+      resolverFixture(),
+      repositoryFixture(deliveries),
+    ).execute({ job: { ...job, attemptCount: 2 } });
+
+    expect(deliveries[0].retryAt?.getTime()).toBeGreaterThanOrEqual(
+      before + 120_000,
+    );
+    expect(deliveries[0].retryAt?.getTime()).toBeLessThanOrEqual(
+      Date.now() + 120_000,
+    );
   });
 });
 

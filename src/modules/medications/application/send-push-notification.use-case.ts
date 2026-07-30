@@ -73,8 +73,30 @@ export class SendPushNotificationUseCase {
         deliveryStatus: 'failed',
         errorCode: this.errorCode(error),
         detail,
+        retryAt: this.retryAt(job, error),
       });
     }
+  }
+
+  private retryAt(job: NotificationJob, error: unknown): Date | null {
+    if (job.attemptCount >= job.maxAttempts || this.isPermanent(error)) {
+      return null;
+    }
+    const delaySeconds = Math.min(
+      3600,
+      60 * 2 ** Math.max(0, job.attemptCount - 1),
+    );
+    return new Date(Date.now() + delaySeconds * 1000);
+  }
+
+  private isPermanent(error: unknown): boolean {
+    const code = this.errorCode(error);
+    return new Set([
+      'messaging/invalid-argument',
+      'messaging/invalid-registration-token',
+      'messaging/registration-token-not-registered',
+      'messaging/mismatched-credential',
+    ]).has(code);
   }
 
   private errorCode(error: unknown): string {

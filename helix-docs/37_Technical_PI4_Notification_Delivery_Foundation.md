@@ -30,6 +30,9 @@ Se implemento la primera base del Reminder & Notification Engine:
 * contenido push minimo sin identificadores del paciente ni datos clinicos.
 * trabajador por lotes con reclamacion global y leases;
 * resolucion de referencias opacas mediante configuracion secreta externa.
+* reintentos con backoff exponencial de 1 a 60 minutos;
+* limite predeterminado de cinco intentos;
+* terminacion inmediata para errores permanentes de token FCM.
 
 # Alcance
 
@@ -166,10 +169,9 @@ CI aprobo:
 
 # Siguiente Incremento
 
-**Reintentos Y Operacion Programada**
+**Operacion Programada Y Webhooks**
 
 Debe incluir:
 
-* reintentos con backoff y limite;
 * webhooks idempotentes del proveedor;
 * modelo verificable de consentimiento para terceros.

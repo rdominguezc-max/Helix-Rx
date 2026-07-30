@@ -54,6 +54,9 @@ interface JobRow {
   claimed_at: Date | null;
   lease_expires_at: Date | null;
   attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: Date;
+  exhausted_at: Date | null;
   last_error: string | null;
   created_at: Date;
   updated_at: Date;
@@ -79,6 +82,7 @@ interface DeliveryRow {
   detail: string | null;
   occurred_at: Date;
   recorded_at: Date;
+  retry_scheduled_at: Date | null;
 }
 
 function mapPreference(row: PreferenceRow): PatientNotificationPreference {
@@ -119,6 +123,9 @@ function mapJob(row: JobRow): NotificationJob {
     claimedAt: row.claimed_at,
     leaseExpiresAt: row.lease_expires_at,
     attemptCount: row.attempt_count,
+    maxAttempts: row.max_attempts,
+    nextAttemptAt: row.next_attempt_at,
+    exhaustedAt: row.exhausted_at,
     lastError: row.last_error,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -136,6 +143,7 @@ function mapDelivery(row: DeliveryRow): NotificationDeliveryEvent {
     detail: row.detail,
     occurredAt: row.occurred_at,
     recordedAt: row.recorded_at,
+    retryScheduledAt: row.retry_scheduled_at,
   };
 }
 
@@ -279,10 +287,12 @@ export class PostgresNotificationRepository implements NotificationRepository {
     const result = await this.databaseService.query<JobRow>(
       `INSERT INTO notification_jobs (
          patient_id, organization_id, expected_dose_id,
-         job_type, channel, destination_id, scheduled_for
+         job_type, channel, destination_id, scheduled_for, next_attempt_at
        )
        SELECT expected.patient_id, expected.organization_id, expected.id,
               'dose_reminder', channel.value, destination.id,
+              expected.scheduled_for
+                - (preference.reminder_lead_minutes * interval '1 minute'),
               expected.scheduled_for
                 - (preference.reminder_lead_minutes * interval '1 minute')
        FROM medication_expected_doses expected
@@ -324,7 +334,8 @@ export class PostgresNotificationRepository implements NotificationRepository {
            JOIN medication_expected_doses expected
              ON expected.id = job.expected_dose_id
            WHERE job.patient_id = $1 AND job.organization_id = $2
-             AND job.scheduled_for <= $3
+             AND job.next_attempt_at <= $3
+             AND job.attempt_count < job.max_attempts
              AND expected.status = 'scheduled'
              AND (
                job.status = 'pending'
@@ -380,7 +391,8 @@ export class PostgresNotificationRepository implements NotificationRepository {
              ON destination.id = job.destination_id
             AND destination.status = 'verified'
            WHERE job.channel = 'push'
-             AND job.scheduled_for <= $1
+             AND job.next_attempt_at <= $1
+             AND job.attempt_count < job.max_attempts
              AND expected.status = 'scheduled'
              AND (
                job.status = 'pending'
@@ -430,9 +442,10 @@ export class PostgresNotificationRepository implements NotificationRepository {
       const deliveryResult = await executor.query<DeliveryRow>(
         `INSERT INTO notification_delivery_events (
            notification_job_id, provider, delivery_status,
-           provider_message_id, error_code, detail, occurred_at
+           provider_message_id, error_code, detail, occurred_at,
+           retry_scheduled_at
          )
-         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()))
+         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()), $8)
          RETURNING *`,
         [
           job.id,
@@ -442,12 +455,28 @@ export class PostgresNotificationRepository implements NotificationRepository {
           data.errorCode ?? null,
           data.detail ?? null,
           data.occurredAt ?? null,
+          data.retryAt ?? null,
         ],
       );
       await executor.query(
         `UPDATE notification_jobs
-         SET status = $2,
+         SET status = CASE
+               WHEN $2 = 'failed' AND $4::timestamptz IS NOT NULL
+                 AND attempt_count < max_attempts THEN 'pending'
+               WHEN $2 = 'failed' THEN 'failed'
+               ELSE 'sent'
+             END,
              last_error = CASE WHEN $2 = 'failed' THEN $3 ELSE NULL END,
+             next_attempt_at = COALESCE($4, next_attempt_at),
+             exhausted_at = CASE
+               WHEN $2 = 'failed'
+                 AND ($4::timestamptz IS NULL OR attempt_count >= max_attempts)
+               THEN now()
+               ELSE NULL
+             END,
+             claim_token = NULL,
+             claimed_by = NULL,
+             claimed_at = NULL,
              lease_expires_at = NULL,
              updated_at = now()
          WHERE id = $1`,
@@ -455,6 +484,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
           job.id,
           data.deliveryStatus === 'failed' ? 'failed' : 'sent',
           data.detail ?? data.errorCode ?? null,
+          data.retryAt ?? null,
         ],
       );
       return mapDelivery(deliveryResult.rows[0]);

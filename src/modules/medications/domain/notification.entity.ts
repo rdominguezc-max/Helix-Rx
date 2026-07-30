@@ -53,6 +53,9 @@ export interface NotificationJob {
   claimedAt: Date | null;
   leaseExpiresAt: Date | null;
   attemptCount: number;
+  maxAttempts: number;
+  nextAttemptAt: Date;
+  exhaustedAt: Date | null;
   lastError: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -68,4 +71,5 @@ export interface NotificationDeliveryEvent {
   detail: string | null;
   occurredAt: Date;
   recordedAt: Date;
+  retryScheduledAt: Date | null;
 }

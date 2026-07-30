@@ -157,8 +157,53 @@ async function main(): Promise<void> {
     if (!staleClaimRejected) {
       throw new Error('stale notification claim was accepted');
     }
+
+    const emailClaim = await repository.claimJobs({
+      patientId,
+      organizationId,
+      workerId: 'runtime-email-worker',
+      asOf: new Date('2026-07-30T16:00:00.000Z'),
+      limit: 1,
+      leaseSeconds: 300,
+    });
+    if (emailClaim.length !== 1 || !emailClaim[0].claimToken) {
+      throw new Error('retry validation job was not claimed');
+    }
+    const retryAt = new Date('2026-07-30T16:05:00.000Z');
+    await repository.recordDelivery({
+      patientId,
+      organizationId,
+      notificationJobId: emailClaim[0].id,
+      claimToken: emailClaim[0].claimToken,
+      provider: 'runtime-provider',
+      deliveryStatus: 'failed',
+      errorCode: 'provider/temporary',
+      retryAt,
+    });
+    const beforeRetry = await repository.claimJobs({
+      patientId,
+      organizationId,
+      workerId: 'runtime-email-worker',
+      asOf: new Date('2026-07-30T16:04:59.000Z'),
+      limit: 1,
+      leaseSeconds: 300,
+    });
+    if (beforeRetry.length !== 0) {
+      throw new Error('notification retry was claimed before backoff elapsed');
+    }
+    const afterRetry = await repository.claimJobs({
+      patientId,
+      organizationId,
+      workerId: 'runtime-email-worker',
+      asOf: retryAt,
+      limit: 1,
+      leaseSeconds: 300,
+    });
+    if (afterRetry.length !== 1 || afterRetry[0].attemptCount !== 2) {
+      throw new Error('notification retry was not reclaimed after backoff');
+    }
     console.log(
-      'Notification runtime validation passed: preferences, verified destinations, global push claim, idempotency, delivery and stale-token rejection.',
+      'Notification runtime validation passed: destinations, global claim, idempotency, delivery, stale-token rejection and retry backoff.',
     );
   } finally {
     await pool.query(
