@@ -17,6 +17,9 @@ export interface EnvironmentConfig {
     clientEmail: string | null;
     privateKey: string | null;
   };
+  notifications: {
+    destinationTokensJson: string | null;
+  };
 }
 
 const allowedNodeEnvironments = new Set<NodeEnvironment>([
@@ -94,6 +97,9 @@ export function loadEnvironment(): EnvironmentConfig {
       projectId: optionalString('FIREBASE_PROJECT_ID'),
       clientEmail: optionalString('FIREBASE_CLIENT_EMAIL'),
       privateKey: optionalString('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n') ?? null,
+    },
+    notifications: {
+      destinationTokensJson: optionalString('NOTIFICATION_DESTINATION_TOKENS_JSON'),
     },
   };
 }

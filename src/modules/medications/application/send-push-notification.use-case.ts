@@ -8,6 +8,10 @@ import {
   type PushNotificationProvider,
 } from '../domain/push-notification-provider';
 import {
+  NOTIFICATION_DESTINATION_RESOLVER,
+  type NotificationDestinationResolver,
+} from '../domain/notification-destination-resolver';
+import {
   NOTIFICATION_REPOSITORY,
   type NotificationRepository,
 } from '../domain/notification.repository';
@@ -17,13 +21,14 @@ export class SendPushNotificationUseCase {
   constructor(
     @Inject(PUSH_NOTIFICATION_PROVIDER)
     private readonly provider: PushNotificationProvider,
+    @Inject(NOTIFICATION_DESTINATION_RESOLVER)
+    private readonly destinationResolver: NotificationDestinationResolver,
     @Inject(NOTIFICATION_REPOSITORY)
     private readonly repository: NotificationRepository,
   ) {}
 
   async execute(command: {
     job: NotificationJob;
-    destinationToken: string;
   }): Promise<NotificationDeliveryEvent> {
     const { job } = command;
     if (job.channel !== 'push') throw new Error('notification job is not push');
@@ -32,8 +37,15 @@ export class SendPushNotificationUseCase {
     }
 
     try {
+      if (!job.destinationReference) {
+        throw new Error('push destination reference is missing');
+      }
+      const destinationToken =
+        await this.destinationResolver.resolvePushToken(
+          job.destinationReference,
+        );
       const result = await this.provider.send({
-        destinationToken: command.destinationToken,
+        destinationToken,
         title: 'Recordatorio de medicamento',
         body: 'Tienes una dosis programada.',
         data: {

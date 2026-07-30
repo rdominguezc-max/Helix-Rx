@@ -8,6 +8,7 @@ import type {
 } from '../domain/notification.entity';
 import type {
   ClaimNotificationJobsData,
+  ClaimDuePushJobsData,
   NotificationRepository,
   PrepareNotificationJobsData,
   RecordNotificationDeliveryData,
@@ -97,6 +98,15 @@ class NotificationRepositoryFixture implements NotificationRepository {
 
   async claimJobs(data: ClaimNotificationJobsData): Promise<NotificationJob[]> {
     this.claimedData = data;
+    return [jobFixture({ status: 'processing', claimToken })];
+  }
+
+  async claimDuePushJobs(data: ClaimDuePushJobsData): Promise<NotificationJob[]> {
+    this.claimedData = {
+      ...data,
+      patientId,
+      organizationId,
+    };
     return [jobFixture({ status: 'processing', claimToken })];
   }
 

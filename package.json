@@ -19,7 +19,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "validate:expected-doses": "tsx scripts/validate-expected-dose-runtime.ts",
-    "validate:notifications": "tsx scripts/validate-notification-runtime.ts"
+    "validate:notifications": "tsx scripts/validate-notification-runtime.ts",
+    "notifications:process-push": "tsx scripts/process-push-notifications.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.0",

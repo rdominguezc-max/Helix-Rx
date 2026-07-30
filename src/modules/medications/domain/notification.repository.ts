@@ -42,6 +42,13 @@ export interface ClaimNotificationJobsData {
   leaseSeconds: number;
 }
 
+export interface ClaimDuePushJobsData {
+  workerId: string;
+  asOf: Date;
+  limit: number;
+  leaseSeconds: number;
+}
+
 export interface RecordNotificationDeliveryData {
   patientId: string;
   organizationId: string;
@@ -73,6 +80,7 @@ export interface NotificationRepository {
   ): Promise<PatientNotificationPreference | null>;
   prepareJobs(data: PrepareNotificationJobsData): Promise<NotificationJob[]>;
   claimJobs(data: ClaimNotificationJobsData): Promise<NotificationJob[]>;
+  claimDuePushJobs(data: ClaimDuePushJobsData): Promise<NotificationJob[]>;
   recordDelivery(
     data: RecordNotificationDeliveryData,
   ): Promise<NotificationDeliveryEvent>;

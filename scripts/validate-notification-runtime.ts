@@ -112,9 +112,7 @@ async function main(): Promise<void> {
       throw new Error('notification job preparation is not idempotent');
     }
 
-    const claimed = await repository.claimJobs({
-      patientId,
-      organizationId,
+    const claimed = await repository.claimDuePushJobs({
       workerId: 'runtime-worker',
       asOf: new Date('2026-07-30T16:00:00.000Z'),
       limit: 1,
@@ -126,6 +124,9 @@ async function main(): Promise<void> {
       !claimed[0].claimToken
     ) {
       throw new Error('notification job was not claimed');
+    }
+    if (claimed[0].channel !== 'push' || !claimed[0].destinationReference) {
+      throw new Error('global push worker did not resolve the verified destination');
     }
     const delivery = await repository.recordDelivery({
       patientId,
@@ -157,7 +158,7 @@ async function main(): Promise<void> {
       throw new Error('stale notification claim was accepted');
     }
     console.log(
-      'Notification runtime validation passed: preferences, idempotency, claim lease, delivery and stale-token rejection.',
+      'Notification runtime validation passed: preferences, verified destinations, global push claim, idempotency, delivery and stale-token rejection.',
     );
   } finally {
     await pool.query(

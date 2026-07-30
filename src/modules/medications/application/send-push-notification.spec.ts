@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { NotificationJob } from '../domain/notification.entity';
 import type { PushNotificationProvider } from '../domain/push-notification-provider';
+import type { NotificationDestinationResolver } from '../domain/notification-destination-resolver';
 import type {
   NotificationRepository,
   RecordNotificationDeliveryData,
@@ -44,10 +45,11 @@ describe('SendPushNotificationUseCase', () => {
     };
     const useCase = new SendPushNotificationUseCase(
       provider,
+      resolverFixture(),
       repositoryFixture(deliveries),
     );
 
-    await useCase.execute({ job, destinationToken: 'fcm-token' });
+    await useCase.execute({ job });
 
     expect(sent[0]).toMatchObject({
       destinationToken: 'fcm-token',
@@ -72,8 +74,9 @@ describe('SendPushNotificationUseCase', () => {
 
     await new SendPushNotificationUseCase(
       provider,
+      resolverFixture(),
       repositoryFixture(deliveries),
-    ).execute({ job, destinationToken: 'fcm-token' });
+    ).execute({ job });
 
     expect(deliveries[0]).toMatchObject({
       deliveryStatus: 'failed',
@@ -102,4 +105,8 @@ function repositoryFixture(
       };
     },
   } as NotificationRepository;
+}
+
+function resolverFixture(): NotificationDestinationResolver {
+  return { resolvePushToken: async () => 'fcm-token' };
 }

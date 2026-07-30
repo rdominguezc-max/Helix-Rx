@@ -17,6 +17,7 @@ import { RegisterNotificationDestinationUseCase } from './application/register-n
 import { ListNotificationDestinationsUseCase } from './application/list-notification-destinations.use-case';
 import { ChangeNotificationDestinationStatusUseCase } from './application/change-notification-destination-status.use-case';
 import { SendPushNotificationUseCase } from './application/send-push-notification.use-case';
+import { ProcessDuePushNotificationsUseCase } from './application/process-due-push-notifications.use-case';
 import { RecordInventoryMovementUseCase } from './application/record-inventory-movement.use-case';
 import { RecordDoseEventUseCase } from './application/record-dose-event.use-case';
 import { CreateMedicationUseCase } from './application/create-medication.use-case';
@@ -31,6 +32,7 @@ import { NOTIFICATION_REPOSITORY } from './domain/notification.repository';
 import { EXPECTED_DOSE_REPOSITORY } from './domain/expected-dose.repository';
 import { TREATMENT_LIFECYCLE_REPOSITORY } from './domain/treatment-lifecycle.repository';
 import { PUSH_NOTIFICATION_PROVIDER } from './domain/push-notification-provider';
+import { NOTIFICATION_DESTINATION_RESOLVER } from './domain/notification-destination-resolver';
 import { MedicationInventoryController } from './http/medication-inventory.controller';
 import { MedicationsController } from './http/medications.controller';
 import { NotificationController } from './http/notification.controller';
@@ -42,6 +44,7 @@ import { PostgresNotificationRepository } from './infrastructure/postgres-notifi
 import { PostgresExpectedDoseRepository } from './infrastructure/postgres-expected-dose.repository';
 import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-treatment-lifecycle.repository';
 import { FirebasePushNotificationProvider } from './infrastructure/firebase-push-notification.provider';
+import { EnvironmentNotificationDestinationResolver } from './infrastructure/environment-notification-destination.resolver';
 
 @Module({
   imports: [AuditModule],
@@ -75,6 +78,7 @@ import { FirebasePushNotificationProvider } from './infrastructure/firebase-push
     ListNotificationDestinationsUseCase,
     ChangeNotificationDestinationStatusUseCase,
     SendPushNotificationUseCase,
+    ProcessDuePushNotificationsUseCase,
     ChangeTreatmentStatusUseCase,
     RecordDoseEventUseCase,
     ListDoseEventsUseCase,
@@ -101,6 +105,10 @@ import { FirebasePushNotificationProvider } from './infrastructure/firebase-push
     {
       provide: PUSH_NOTIFICATION_PROVIDER,
       useClass: FirebasePushNotificationProvider,
+    },
+    {
+      provide: NOTIFICATION_DESTINATION_RESOLVER,
+      useClass: EnvironmentNotificationDestinationResolver,
     },
   ],
 })

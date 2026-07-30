@@ -8,6 +8,7 @@ import type {
 } from '../domain/notification.entity';
 import type {
   ClaimNotificationJobsData,
+  ClaimDuePushJobsData,
   NotificationRepository,
   PrepareNotificationJobsData,
   RecordNotificationDeliveryData,
@@ -360,6 +361,51 @@ export class PostgresNotificationRepository implements NotificationRepository {
           data.workerId,
           data.leaseSeconds,
         ],
+      );
+      return result.rows.map(mapJob);
+    });
+  }
+
+  async claimDuePushJobs(
+    data: ClaimDuePushJobsData,
+  ): Promise<NotificationJob[]> {
+    return this.databaseService.transaction(async (executor) => {
+      const result = await executor.query<JobRow>(
+        `WITH claimable AS (
+           SELECT job.id
+           FROM notification_jobs job
+           JOIN medication_expected_doses expected
+             ON expected.id = job.expected_dose_id
+           JOIN patient_notification_destinations destination
+             ON destination.id = job.destination_id
+            AND destination.status = 'verified'
+           WHERE job.channel = 'push'
+             AND job.scheduled_for <= $1
+             AND expected.status = 'scheduled'
+             AND (
+               job.status = 'pending'
+               OR (job.status = 'processing' AND job.lease_expires_at <= $1)
+             )
+           ORDER BY job.scheduled_for, job.id
+           FOR UPDATE OF job SKIP LOCKED
+           LIMIT $2
+         )
+         UPDATE notification_jobs job
+         SET status = 'processing',
+             claim_token = gen_random_uuid(),
+             claimed_by = $3,
+             claimed_at = $1,
+             lease_expires_at = $1 + ($4::int * interval '1 second'),
+             attempt_count = job.attempt_count + 1,
+             updated_at = now()
+         FROM claimable
+         WHERE job.id = claimable.id
+         RETURNING job.*,
+           (SELECT destination_reference FROM patient_notification_destinations
+            WHERE id = job.destination_id) AS destination_reference,
+           (SELECT masked_label FROM patient_notification_destinations
+            WHERE id = job.destination_id) AS destination_masked_label`,
+        [data.asOf, data.limit, data.workerId, data.leaseSeconds],
       );
       return result.rows.map(mapJob);
     });

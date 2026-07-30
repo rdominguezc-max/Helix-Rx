@@ -28,12 +28,19 @@ Se implemento la primera base del Reminder & Notification Engine:
 * permisos dedicados `notifications.read` y `notifications.write`.
 * adaptador push real para Firebase Cloud Messaging;
 * contenido push minimo sin identificadores del paciente ni datos clinicos.
+* trabajador por lotes con reclamacion global y leases;
+* resolucion de referencias opacas mediante configuracion secreta externa.
 
 # Alcance
 
 La base puede enviar push mediante Firebase Cloud Messaging cuando las
 credenciales Firebase estan configuradas. Las credenciales permanecen en el
 entorno y no se almacenan en PostgreSQL.
+
+El trabajador se ejecuta con `pnpm notifications:process-push`. Requiere
+`NOTIFICATION_DESTINATION_TOKENS_JSON`, un objeto JSON secreto que relaciona
+referencias opacas con tokens FCM. En produccion debe inyectarse desde un
+gestor de secretos.
 
 El objetivo es separar:
 
@@ -159,12 +166,10 @@ CI aprobo:
 
 # Siguiente Incremento
 
-**Worker Push Y Reintentos**
+**Reintentos Y Operacion Programada**
 
 Debe incluir:
 
-* resolver referencias opacas hacia tokens fuera de PostgreSQL;
-* trabajador programado para reclamar y enviar push;
 * reintentos con backoff y limite;
 * webhooks idempotentes del proveedor;
 * modelo verificable de consentimiento para terceros.
