@@ -24,6 +24,8 @@ Se implemento la primera base del Reminder & Notification Engine:
 * cancelacion de trabajos pendientes al pausar preferencias;
 * cancelacion de canales removidos;
 * cancelacion del recordatorio cuando la dosis ya tiene resultado.
+* destinos verificados con referencias opacas y etiquetas enmascaradas;
+* permisos dedicados `notifications.read` y `notifications.write`.
 
 # Alcance
 
@@ -62,8 +64,8 @@ Estados:
 * `failed`;
 * `cancelled`.
 
-La combinacion dosis esperada, tipo y canal es unica. Preparar la misma ventana
-varias veces no duplica recordatorios.
+La combinacion dosis esperada, tipo, canal y destino es unica. Solo los destinos
+activos y verificados producen trabajos; preparar la misma ventana no los duplica.
 
 # Reclamacion
 
@@ -93,25 +95,29 @@ reutilizarse despues de finalizar el trabajo.
 
 * `PUT /api/v1/patients/:patientId/notifications/preference`
 * `GET /api/v1/patients/:patientId/notifications/preference`
+* `POST /api/v1/patients/:patientId/notifications/destinations`
+* `GET /api/v1/patients/:patientId/notifications/destinations`
+* `POST /api/v1/patients/:patientId/notifications/destinations/:destinationId/verify`
+* `POST /api/v1/patients/:patientId/notifications/destinations/:destinationId/revoke`
 * `POST /api/v1/patients/:patientId/notifications/jobs/prepare`
 * `POST /api/v1/patients/:patientId/notifications/jobs/claim`
 * `POST /api/v1/patients/:patientId/notifications/jobs/:notificationJobId/deliveries`
 
-Temporalmente estos endpoints reutilizan `medications.read` y
-`medications.write`, porque el flujo nace de dosis esperadas. PI-4 debera
-introducir permisos dedicados antes de exponer trabajadores externos.
+Estos endpoints usan `notifications.read` y `notifications.write`.
 
 # Persistencia
 
 Migracion:
 
 * `013_notification_delivery_foundation.sql`
+* `014_verified_notification_destinations.sql`
 
 Tablas:
 
 * `patient_notification_preferences`;
 * `notification_jobs`;
 * `notification_delivery_events`.
+* `patient_notification_destinations`.
 
 # Seguridad De Escalamiento
 
@@ -131,7 +137,7 @@ Antes de notificar a terceros se requiere:
 
 PostgreSQL 17 valido:
 
-* migracion `013`;
+* migraciones `013` y `014`;
 * preferencias con membresia;
 * preparacion multicanal;
 * deduplicacion;
@@ -150,13 +156,11 @@ CI aprobo:
 
 # Siguiente Incremento
 
-**Provider Adapters And Verified Destinations**
+**Provider Adapters**
 
 Debe incluir:
 
-* destinos verificados sin copiarlos al payload del trabajo;
 * adaptador push inicial;
 * reintentos con backoff y limite;
 * webhooks idempotentes del proveedor;
-* permisos dedicados `notifications.read` y `notifications.write`;
 * modelo verificable de consentimiento para terceros.

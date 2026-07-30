@@ -4,6 +4,7 @@ import type {
   NotificationDeliveryEvent,
   NotificationJob,
   PatientNotificationPreference,
+  PatientNotificationDestination,
 } from '../domain/notification.entity';
 import type {
   ClaimNotificationJobsData,
@@ -11,6 +12,7 @@ import type {
   PrepareNotificationJobsData,
   RecordNotificationDeliveryData,
   SetNotificationPreferenceData,
+  RegisterNotificationDestinationData,
 } from '../domain/notification.repository';
 import { ClaimNotificationJobsUseCase } from './claim-notification-jobs.use-case';
 import { PrepareNotificationJobsUseCase } from './prepare-notification-jobs.use-case';
@@ -29,6 +31,43 @@ class NotificationRepositoryFixture implements NotificationRepository {
   preparedData: PrepareNotificationJobsData | null = null;
   claimedData: ClaimNotificationJobsData | null = null;
   deliveryData: RecordNotificationDeliveryData | null = null;
+
+  async registerDestination(
+    data: RegisterNotificationDestinationData,
+  ): Promise<PatientNotificationDestination> {
+    return {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      patientId: data.patientId,
+      organizationId: data.organizationId,
+      channel: data.channel,
+      destinationReference: data.destinationReference,
+      maskedLabel: data.maskedLabel,
+      status: 'pending',
+      verifiedAt: null,
+      revokedAt: null,
+      createdBy: data.createdBy ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async listDestinations(): Promise<PatientNotificationDestination[]> {
+    return [];
+  }
+
+  async changeDestinationStatus(): Promise<PatientNotificationDestination> {
+    return {
+      ...(await this.registerDestination({
+        patientId,
+        organizationId,
+        channel: 'push',
+        destinationReference: 'provider-destination-1',
+        maskedLabel: 'device …1234',
+      })),
+      status: 'verified',
+      verifiedAt: now,
+    };
+  }
 
   async setPreference(
     data: SetNotificationPreferenceData,
@@ -87,6 +126,9 @@ function jobFixture(overrides: Partial<NotificationJob> = {}): NotificationJob {
     expectedDoseId: '88888888-8888-4888-8888-888888888888',
     jobType: 'dose_reminder',
     channel: 'push',
+    destinationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    destinationReference: 'provider-destination-1',
+    destinationMaskedLabel: 'device …1234',
     scheduledFor: now,
     status: 'pending',
     claimToken: null,

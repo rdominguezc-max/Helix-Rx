@@ -4,6 +4,7 @@ import type {
   NotificationDeliveryEvent,
   NotificationJob,
   PatientNotificationPreference,
+  PatientNotificationDestination,
 } from '../domain/notification.entity';
 import type {
   ClaimNotificationJobsData,
@@ -11,7 +12,17 @@ import type {
   PrepareNotificationJobsData,
   RecordNotificationDeliveryData,
   SetNotificationPreferenceData,
+  RegisterNotificationDestinationData,
 } from '../domain/notification.repository';
+
+interface DestinationRow {
+  id: string; patient_id: string; organization_id: string;
+  channel: PatientNotificationDestination['channel'];
+  destination_reference: string; masked_label: string;
+  status: PatientNotificationDestination['status'];
+  verified_at: Date | null; revoked_at: Date | null; created_by: string | null;
+  created_at: Date; updated_at: Date;
+}
 
 interface PreferenceRow {
   id: string;
@@ -32,6 +43,9 @@ interface JobRow {
   expected_dose_id: string;
   job_type: NotificationJob['jobType'];
   channel: NotificationJob['channel'];
+  destination_id: string;
+  destination_reference?: string | null;
+  destination_masked_label?: string | null;
   scheduled_for: Date;
   status: NotificationJob['status'];
   claim_token: string | null;
@@ -42,6 +56,16 @@ interface JobRow {
   last_error: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+function mapDestination(row: DestinationRow): PatientNotificationDestination {
+  return {
+    id: row.id, patientId: row.patient_id, organizationId: row.organization_id,
+    channel: row.channel, destinationReference: row.destination_reference,
+    maskedLabel: row.masked_label, status: row.status,
+    verifiedAt: row.verified_at, revokedAt: row.revoked_at,
+    createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
 }
 
 interface DeliveryRow {
@@ -84,6 +108,9 @@ function mapJob(row: JobRow): NotificationJob {
     expectedDoseId: row.expected_dose_id,
     jobType: row.job_type,
     channel: row.channel,
+    destinationId: row.destination_id,
+    destinationReference: row.destination_reference ?? null,
+    destinationMaskedLabel: row.destination_masked_label ?? null,
     scheduledFor: row.scheduled_for,
     status: row.status,
     claimToken: row.claim_token,
@@ -114,6 +141,65 @@ function mapDelivery(row: DeliveryRow): NotificationDeliveryEvent {
 @Injectable()
 export class PostgresNotificationRepository implements NotificationRepository {
   constructor(private readonly databaseService: DatabaseService) {}
+
+  async registerDestination(
+    data: RegisterNotificationDestinationData,
+  ): Promise<PatientNotificationDestination> {
+    const result = await this.databaseService.query<DestinationRow>(
+      `INSERT INTO patient_notification_destinations (
+         patient_id, organization_id, channel, destination_reference, masked_label, created_by
+       )
+       SELECT $1, $2, $3, $4, $5, $6
+       WHERE EXISTS (
+         SELECT 1 FROM patient_organization_memberships
+         WHERE patient_id = $1 AND organization_id = $2
+           AND status = 'active' AND deleted_at IS NULL
+       )
+       RETURNING *`,
+      [data.patientId, data.organizationId, data.channel, data.destinationReference,
+       data.maskedLabel, data.createdBy ?? null],
+    );
+    if (!result.rows[0]) throw new Error('patient is not active in organization');
+    return mapDestination(result.rows[0]);
+  }
+
+  async listDestinations(patientId: string, organizationId: string): Promise<PatientNotificationDestination[]> {
+    const result = await this.databaseService.query<DestinationRow>(
+      `SELECT * FROM patient_notification_destinations
+       WHERE patient_id = $1 AND organization_id = $2
+       ORDER BY created_at, id`,
+      [patientId, organizationId],
+    );
+    return result.rows.map(mapDestination);
+  }
+
+  async changeDestinationStatus(
+    patientId: string, organizationId: string, destinationId: string,
+    status: 'verified' | 'revoked',
+  ): Promise<PatientNotificationDestination> {
+    return this.databaseService.transaction(async (executor) => {
+      const result = await executor.query<DestinationRow>(
+        `UPDATE patient_notification_destinations
+         SET status = $4,
+             verified_at = CASE WHEN $4 = 'verified' THEN COALESCE(verified_at, now()) ELSE verified_at END,
+             revoked_at = CASE WHEN $4 = 'revoked' THEN now() ELSE NULL END,
+             updated_at = now()
+         WHERE id = $3 AND patient_id = $1 AND organization_id = $2
+           AND status <> 'revoked'
+         RETURNING *`,
+        [patientId, organizationId, destinationId, status],
+      );
+      if (!result.rows[0]) throw new Error('active notification destination not found');
+      if (status === 'revoked') {
+        await executor.query(
+          `UPDATE notification_jobs SET status = 'cancelled', updated_at = now()
+           WHERE destination_id = $1 AND status = 'pending'`,
+          [destinationId],
+        );
+      }
+      return mapDestination(result.rows[0]);
+    });
+  }
 
   async setPreference(
     data: SetNotificationPreferenceData,
@@ -192,10 +278,10 @@ export class PostgresNotificationRepository implements NotificationRepository {
     const result = await this.databaseService.query<JobRow>(
       `INSERT INTO notification_jobs (
          patient_id, organization_id, expected_dose_id,
-         job_type, channel, scheduled_for
+         job_type, channel, destination_id, scheduled_for
        )
        SELECT expected.patient_id, expected.organization_id, expected.id,
-              'dose_reminder', channel.value,
+              'dose_reminder', channel.value, destination.id,
               expected.scheduled_for
                 - (preference.reminder_lead_minutes * interval '1 minute')
        FROM medication_expected_doses expected
@@ -205,12 +291,18 @@ export class PostgresNotificationRepository implements NotificationRepository {
        CROSS JOIN LATERAL jsonb_array_elements_text(
          preference.enabled_channels
        ) AS channel(value)
+       JOIN patient_notification_destinations destination
+         ON destination.patient_id = expected.patient_id
+        AND destination.organization_id = expected.organization_id
+        AND destination.channel = channel.value
+        AND destination.status = 'verified'
        WHERE expected.patient_id = $1 AND expected.organization_id = $2
          AND expected.scheduled_for >= $3 AND expected.scheduled_for <= $4
          AND expected.status = 'scheduled'
          AND preference.status = 'active'
          AND channel.value IN ('push', 'email', 'sms')
-       ON CONFLICT (expected_dose_id, job_type, channel) DO NOTHING
+       ON CONFLICT (expected_dose_id, job_type, channel, destination_id)
+         WHERE destination_id IS NOT NULL DO NOTHING
        RETURNING *`,
       [
         data.patientId,
@@ -255,7 +347,11 @@ export class PostgresNotificationRepository implements NotificationRepository {
              updated_at = now()
          FROM claimable
          WHERE job.id = claimable.id
-         RETURNING job.*`,
+         RETURNING job.*,
+           (SELECT destination_reference FROM patient_notification_destinations
+            WHERE id = job.destination_id) AS destination_reference,
+           (SELECT masked_label FROM patient_notification_destinations
+            WHERE id = job.destination_id) AS destination_masked_label`,
         [
           data.patientId,
           data.organizationId,

@@ -10,6 +10,9 @@ import { GetNotificationPreferenceUseCase } from '../src/modules/medications/app
 import { PrepareNotificationJobsUseCase } from '../src/modules/medications/application/prepare-notification-jobs.use-case';
 import { RecordNotificationDeliveryUseCase } from '../src/modules/medications/application/record-notification-delivery.use-case';
 import { SetNotificationPreferenceUseCase } from '../src/modules/medications/application/set-notification-preference.use-case';
+import { RegisterNotificationDestinationUseCase } from '../src/modules/medications/application/register-notification-destination.use-case';
+import { ListNotificationDestinationsUseCase } from '../src/modules/medications/application/list-notification-destinations.use-case';
+import { ChangeNotificationDestinationStatusUseCase } from '../src/modules/medications/application/change-notification-destination-status.use-case';
 import { NotificationController } from '../src/modules/medications/http/notification.controller';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
@@ -97,6 +100,9 @@ async function createTestApp(
     expectedDoseId: '66666666-6666-4666-8666-666666666666',
     jobType: 'dose_reminder',
     channel: 'push',
+    destinationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    destinationReference: 'provider-destination-1',
+    destinationMaskedLabel: 'device …1234',
     scheduledFor: new Date(now),
     status: 'processing',
     claimToken: '77777777-7777-4777-8777-777777777777',
@@ -139,6 +145,18 @@ async function createTestApp(
       },
       {
         provide: RecordNotificationDeliveryUseCase,
+        useValue: { execute: async () => ({}) },
+      },
+      {
+        provide: RegisterNotificationDestinationUseCase,
+        useValue: { execute: async () => ({}) },
+      },
+      {
+        provide: ListNotificationDestinationsUseCase,
+        useValue: { execute: async () => [] },
+      },
+      {
+        provide: ChangeNotificationDestinationStatusUseCase,
         useValue: { execute: async () => ({}) },
       },
     ],

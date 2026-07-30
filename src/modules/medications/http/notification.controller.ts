@@ -26,16 +26,21 @@ import { GetNotificationPreferenceUseCase } from '../application/get-notificatio
 import { PrepareNotificationJobsUseCase } from '../application/prepare-notification-jobs.use-case';
 import { RecordNotificationDeliveryUseCase } from '../application/record-notification-delivery.use-case';
 import { SetNotificationPreferenceUseCase } from '../application/set-notification-preference.use-case';
+import { RegisterNotificationDestinationUseCase } from '../application/register-notification-destination.use-case';
+import { ListNotificationDestinationsUseCase } from '../application/list-notification-destinations.use-case';
+import { ChangeNotificationDestinationStatusUseCase } from '../application/change-notification-destination-status.use-case';
 import type {
   NotificationDeliveryEvent,
   NotificationJob,
   PatientNotificationPreference,
+  PatientNotificationDestination,
 } from '../domain/notification.entity';
 import {
   type ClaimNotificationJobsDto,
   type PrepareNotificationJobsDto,
   type RecordNotificationDeliveryDto,
   type SetNotificationPreferenceDto,
+  type RegisterNotificationDestinationDto,
   parseNotificationDate,
 } from './notification.dto';
 
@@ -53,10 +58,65 @@ export class NotificationController {
     private readonly claimJobsUseCase: ClaimNotificationJobsUseCase,
     @Inject(RecordNotificationDeliveryUseCase)
     private readonly recordDeliveryUseCase: RecordNotificationDeliveryUseCase,
+    @Inject(RegisterNotificationDestinationUseCase)
+    private readonly registerDestinationUseCase: RegisterNotificationDestinationUseCase,
+    @Inject(ListNotificationDestinationsUseCase)
+    private readonly listDestinationsUseCase: ListNotificationDestinationsUseCase,
+    @Inject(ChangeNotificationDestinationStatusUseCase)
+    private readonly changeDestinationStatusUseCase: ChangeNotificationDestinationStatusUseCase,
   ) {}
 
+  @Post('destinations')
+  @RequiredPermissions('notifications.write')
+  async registerDestination(
+    @Param('patientId') patientId: string,
+    @Body() body: RegisterNotificationDestinationDto,
+    @AuthenticatedUser() user: AuthenticatedRequestContext | null,
+  ): Promise<PatientNotificationDestination> {
+    try {
+      return await this.registerDestinationUseCase.execute({
+        patientId, organizationId: this.organizationId(user),
+        channel: body.channel, destinationReference: body.destinationReference,
+        maskedLabel: body.maskedLabel, createdBy: user?.userId,
+      });
+    } catch (error) { throw this.badRequest(error); }
+  }
+
+  @Get('destinations')
+  @RequiredPermissions('notifications.read')
+  listDestinations(
+    @Param('patientId') patientId: string,
+    @AuthenticatedUser() user: AuthenticatedRequestContext | null,
+  ): Promise<PatientNotificationDestination[]> {
+    return this.listDestinationsUseCase.execute(patientId, this.organizationId(user));
+  }
+
+  @Post('destinations/:destinationId/verify')
+  @RequiredPermissions('notifications.write')
+  verifyDestination(
+    @Param('patientId') patientId: string,
+    @Param('destinationId') destinationId: string,
+    @AuthenticatedUser() user: AuthenticatedRequestContext | null,
+  ): Promise<PatientNotificationDestination> {
+    return this.changeDestinationStatusUseCase.execute({
+      patientId, organizationId: this.organizationId(user), destinationId, status: 'verified',
+    });
+  }
+
+  @Post('destinations/:destinationId/revoke')
+  @RequiredPermissions('notifications.write')
+  revokeDestination(
+    @Param('patientId') patientId: string,
+    @Param('destinationId') destinationId: string,
+    @AuthenticatedUser() user: AuthenticatedRequestContext | null,
+  ): Promise<PatientNotificationDestination> {
+    return this.changeDestinationStatusUseCase.execute({
+      patientId, organizationId: this.organizationId(user), destinationId, status: 'revoked',
+    });
+  }
+
   @Put('preference')
-  @RequiredPermissions('medications.write')
+  @RequiredPermissions('notifications.write')
   async setPreference(
     @Param('patientId') patientId: string,
     @Body() body: SetNotificationPreferenceDto,
@@ -80,7 +140,7 @@ export class NotificationController {
   }
 
   @Get('preference')
-  @RequiredPermissions('medications.read')
+  @RequiredPermissions('notifications.read')
   getPreference(
     @Param('patientId') patientId: string,
     @AuthenticatedUser() user: AuthenticatedRequestContext | null,
@@ -92,7 +152,7 @@ export class NotificationController {
   }
 
   @Post('jobs/prepare')
-  @RequiredPermissions('medications.write')
+  @RequiredPermissions('notifications.write')
   async prepareJobs(
     @Param('patientId') patientId: string,
     @Body() body: PrepareNotificationJobsDto,
@@ -119,7 +179,7 @@ export class NotificationController {
   }
 
   @Post('jobs/claim')
-  @RequiredPermissions('medications.write')
+  @RequiredPermissions('notifications.write')
   async claimJobs(
     @Param('patientId') patientId: string,
     @Body() body: ClaimNotificationJobsDto,
@@ -140,7 +200,7 @@ export class NotificationController {
   }
 
   @Post('jobs/:notificationJobId/deliveries')
-  @RequiredPermissions('medications.write')
+  @RequiredPermissions('notifications.write')
   async recordDelivery(
     @Param('patientId') patientId: string,
     @Param('notificationJobId') notificationJobId: string,

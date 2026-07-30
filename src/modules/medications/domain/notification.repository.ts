@@ -5,7 +5,17 @@ import type {
   NotificationJob,
   NotificationPreferenceStatus,
   PatientNotificationPreference,
+  PatientNotificationDestination,
 } from './notification.entity';
+
+export interface RegisterNotificationDestinationData {
+  patientId: string;
+  organizationId: string;
+  channel: NotificationChannel;
+  destinationReference: string;
+  maskedLabel: string;
+  createdBy?: string | null;
+}
 
 export interface SetNotificationPreferenceData {
   patientId: string;
@@ -46,6 +56,14 @@ export interface RecordNotificationDeliveryData {
 }
 
 export interface NotificationRepository {
+  registerDestination(data: RegisterNotificationDestinationData): Promise<PatientNotificationDestination>;
+  listDestinations(patientId: string, organizationId: string): Promise<PatientNotificationDestination[]>;
+  changeDestinationStatus(
+    patientId: string,
+    organizationId: string,
+    destinationId: string,
+    status: 'verified' | 'revoked',
+  ): Promise<PatientNotificationDestination>;
   setPreference(
     data: SetNotificationPreferenceData,
   ): Promise<PatientNotificationPreference>;

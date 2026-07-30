@@ -13,6 +13,9 @@ import { ListExpectedDosesUseCase } from './application/list-expected-doses.use-
 import { PrepareNotificationJobsUseCase } from './application/prepare-notification-jobs.use-case';
 import { RecordNotificationDeliveryUseCase } from './application/record-notification-delivery.use-case';
 import { SetNotificationPreferenceUseCase } from './application/set-notification-preference.use-case';
+import { RegisterNotificationDestinationUseCase } from './application/register-notification-destination.use-case';
+import { ListNotificationDestinationsUseCase } from './application/list-notification-destinations.use-case';
+import { ChangeNotificationDestinationStatusUseCase } from './application/change-notification-destination-status.use-case';
 import { RecordInventoryMovementUseCase } from './application/record-inventory-movement.use-case';
 import { RecordDoseEventUseCase } from './application/record-dose-event.use-case';
 import { CreateMedicationUseCase } from './application/create-medication.use-case';
@@ -65,6 +68,9 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     PrepareNotificationJobsUseCase,
     ClaimNotificationJobsUseCase,
     RecordNotificationDeliveryUseCase,
+    RegisterNotificationDestinationUseCase,
+    ListNotificationDestinationsUseCase,
+    ChangeNotificationDestinationStatusUseCase,
     ChangeTreatmentStatusUseCase,
     RecordDoseEventUseCase,
     ListDoseEventsUseCase,

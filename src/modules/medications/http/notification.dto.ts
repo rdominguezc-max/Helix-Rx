@@ -10,6 +10,12 @@ export interface SetNotificationPreferenceDto {
   status?: NotificationPreferenceStatus;
 }
 
+export interface RegisterNotificationDestinationDto {
+  channel: NotificationChannel;
+  destinationReference: string;
+  maskedLabel: string;
+}
+
 export interface PrepareNotificationJobsDto {
   windowStartsAt: string;
   windowEndsAt: string;

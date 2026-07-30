@@ -7,6 +7,22 @@ export type NotificationJobStatus =
   | 'failed'
   | 'cancelled';
 export type NotificationDeliveryStatus = 'accepted' | 'delivered' | 'failed';
+export type NotificationDestinationStatus = 'pending' | 'verified' | 'revoked';
+
+export interface PatientNotificationDestination {
+  id: string;
+  patientId: string;
+  organizationId: string;
+  channel: NotificationChannel;
+  destinationReference: string;
+  maskedLabel: string;
+  status: NotificationDestinationStatus;
+  verifiedAt: Date | null;
+  revokedAt: Date | null;
+  createdBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface PatientNotificationPreference {
   id: string;
@@ -27,6 +43,9 @@ export interface NotificationJob {
   expectedDoseId: string;
   jobType: 'dose_reminder';
   channel: NotificationChannel;
+  destinationId: string;
+  destinationReference: string | null;
+  destinationMaskedLabel: string | null;
   scheduledFor: Date;
   status: NotificationJobStatus;
   claimToken: string | null;

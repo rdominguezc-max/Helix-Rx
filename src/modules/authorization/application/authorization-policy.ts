@@ -6,6 +6,7 @@ const patientScopedResources = new Set([
   'medications',
   'appointments',
   'clinical_events',
+  'notifications',
 ]);
 
 export function requiresPatientRelationship(permissionCode: string): boolean {
@@ -30,6 +31,10 @@ export function getRequiredConsentScopes(permissionCode: string): string[] {
       return ['medications.read'];
     case 'medications.write':
       return ['medications.write'];
+    case 'notifications.read':
+      return ['notifications.read'];
+    case 'notifications.write':
+      return ['notifications.write'];
     case 'appointments.read':
       return ['appointments.read'];
     case 'appointments.write':

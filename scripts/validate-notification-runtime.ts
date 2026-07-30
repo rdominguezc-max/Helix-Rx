@@ -79,6 +79,20 @@ async function main(): Promise<void> {
       reminderLeadMinutes: 15,
       status: 'active',
     });
+    const pushDestination = await repository.registerDestination({
+      patientId, organizationId, channel: 'push',
+      destinationReference: `push-${patientId}`, maskedLabel: 'device …test',
+    });
+    await repository.changeDestinationStatus(
+      patientId, organizationId, pushDestination.id, 'verified',
+    );
+    const emailDestination = await repository.registerDestination({
+      patientId, organizationId, channel: 'email',
+      destinationReference: `email-${patientId}`, maskedLabel: 'r***@example.test',
+    });
+    await repository.changeDestinationStatus(
+      patientId, organizationId, emailDestination.id, 'verified',
+    );
     const prepared = await repository.prepareJobs({
       patientId,
       organizationId,
@@ -158,6 +172,10 @@ async function main(): Promise<void> {
     ]);
     await pool.query(
       'DELETE FROM patient_notification_preferences WHERE patient_id = $1',
+      [patientId],
+    );
+    await pool.query(
+      'DELETE FROM patient_notification_destinations WHERE patient_id = $1',
       [patientId],
     );
     await pool.query(
