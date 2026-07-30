@@ -91,6 +91,10 @@ export class TreatmentLifecycleController {
           query.expirationWarningDays,
           'expirationWarningDays',
         ),
+        missedGraceMinutes: parseOptionalInsightInteger(
+          query.missedGraceMinutes,
+          'missedGraceMinutes',
+        ),
         asOf: parseLifecycleDate(query.asOf, 'asOf') ?? undefined,
       });
     } catch (error) {

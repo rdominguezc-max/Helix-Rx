@@ -229,6 +229,8 @@ async function createTestApp(
                 confirmedDoses: 8,
                 omittedDoses: 2,
                 cancelledDoses: 0,
+                expectedDoses: 10,
+                unrecordedDoses: 0,
                 adherenceRate: 0.8,
                 onTimeDoses: 7,
                 punctualityRate: 0.875,

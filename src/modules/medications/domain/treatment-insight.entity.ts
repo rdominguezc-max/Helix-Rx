@@ -25,6 +25,8 @@ export interface TreatmentAdherenceInsight {
   confirmedDoses: number;
   omittedDoses: number;
   cancelledDoses: number;
+  expectedDoses: number;
+  unrecordedDoses: number;
   adherenceRate: number | null;
   onTimeDoses: number;
   punctualityRate: number | null;

@@ -30,6 +30,8 @@ export interface TreatmentInsightSource {
   administrationTimesCount: number;
   isAsNeeded: boolean;
   doseSummaries: TreatmentInsightDoseSummary[];
+  expectedDoses: number;
+  unrecordedDoses: number;
   inventoryLots: TreatmentInsightInventoryLot[];
 }
 
@@ -68,6 +70,7 @@ export interface TreatmentLifecycleRepository {
     treatmentId: string,
     windowStartsAt: Date,
     windowEndsAt: Date,
+    missedGraceMinutes: number,
   ): Promise<TreatmentInsightSource>;
 }
 

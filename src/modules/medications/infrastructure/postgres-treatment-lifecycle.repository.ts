@@ -88,6 +88,11 @@ interface InsightInventoryRow {
   expires_on: Date | string | null;
 }
 
+interface ExpectedDoseSummaryRow {
+  expected_count: string;
+  unrecorded_count: string;
+}
+
 const allowedTransitions: Record<TreatmentStatus, TreatmentStatus[]> = {
   draft: ['active', 'discontinued'],
   active: ['paused', 'completed', 'discontinued'],
@@ -269,6 +274,19 @@ export class PostgresTreatmentLifecycleRepository
       );
       const event = eventResult.rows[0];
 
+      await executor.query(
+        `UPDATE medication_expected_doses
+         SET status = CASE
+               WHEN $3 = 'cancelled' THEN 'cancelled'
+               ELSE 'fulfilled'
+             END,
+             medication_dose_event_id = $4,
+             updated_at = now()
+         WHERE patient_treatment_id = $1 AND scheduled_for = $2
+           AND medication_dose_event_id IS NULL`,
+        [treatment.id, data.scheduledFor, data.eventStatus, event.id],
+      );
+
       if (data.eventStatus !== 'confirmed') {
         return mapDoseEvent(event, []);
       }
@@ -391,6 +409,7 @@ export class PostgresTreatmentLifecycleRepository
     treatmentId: string,
     windowStartsAt: Date,
     windowEndsAt: Date,
+    missedGraceMinutes: number,
   ): Promise<TreatmentInsightSource> {
     const treatmentResult = await this.databaseService.query<TreatmentRow>(
       `SELECT id, patient_id, organization_id, medication_id,
@@ -404,7 +423,7 @@ export class PostgresTreatmentLifecycleRepository
     const treatment = treatmentResult.rows[0];
     if (!treatment) throw new Error('treatment not found');
 
-    const [doseResult, inventoryResult] = await Promise.all([
+    const [doseResult, expectedResult, inventoryResult] = await Promise.all([
       this.databaseService.query<DoseSummaryRow>(
         `SELECT event_status, timing_status, count(*)::text AS event_count
          FROM medication_dose_events
@@ -418,6 +437,29 @@ export class PostgresTreatmentLifecycleRepository
           organizationId,
           windowStartsAt,
           windowEndsAt,
+        ],
+      ),
+      this.databaseService.query<ExpectedDoseSummaryRow>(
+        `SELECT
+           count(*) FILTER (
+             WHERE medication_dose_event_id IS NOT NULL
+                OR scheduled_for + ($6::int * interval '1 minute') < $5
+           )::text AS expected_count,
+           count(*) FILTER (
+             WHERE medication_dose_event_id IS NULL
+               AND scheduled_for + ($6::int * interval '1 minute') < $5
+           )::text AS unrecorded_count
+         FROM medication_expected_doses
+         WHERE patient_treatment_id = $1
+           AND patient_id = $2 AND organization_id = $3
+           AND scheduled_for >= $4 AND scheduled_for <= $5`,
+        [
+          treatmentId,
+          patientId,
+          organizationId,
+          windowStartsAt,
+          windowEndsAt,
+          missedGraceMinutes,
         ],
       ),
       this.databaseService.query<InsightInventoryRow>(
@@ -476,6 +518,10 @@ export class PostgresTreatmentLifecycleRepository
       administrationTimesCount: administrationTimes.length,
       isAsNeeded: treatment.is_as_needed,
       doseSummaries,
+      expectedDoses: Number(expectedResult.rows[0]?.expected_count ?? 0),
+      unrecordedDoses: Number(
+        expectedResult.rows[0]?.unrecorded_count ?? 0,
+      ),
       inventoryLots,
     };
   }

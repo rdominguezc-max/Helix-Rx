@@ -41,6 +41,8 @@ class LifecycleRepositoryFixture implements TreatmentLifecycleRepository {
       { eventStatus: 'omitted', timingStatus: null, count: 2 },
       { eventStatus: 'cancelled', timingStatus: null, count: 1 },
     ],
+    expectedDoses: 13,
+    unrecordedDoses: 2,
     inventoryLots: [
       {
         id: '88888888-8888-4888-8888-888888888888',
@@ -302,7 +304,9 @@ describe('Treatment inventory risk and adherence insight', () => {
       confirmedDoses: 8,
       omittedDoses: 2,
       cancelledDoses: 1,
-      adherenceRate: 0.8,
+      expectedDoses: 13,
+      unrecordedDoses: 2,
+      adherenceRate: 0.6667,
       onTimeDoses: 7,
       punctualityRate: 0.875,
     });

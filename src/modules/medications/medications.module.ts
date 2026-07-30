@@ -3,9 +3,11 @@ import { AuditModule } from '../audit/audit.module';
 import { AddInventoryLotUseCase } from './application/add-inventory-lot.use-case';
 import { ChangeTreatmentStatusUseCase } from './application/change-treatment-status.use-case';
 import { DoseConversionService } from './application/dose-conversion.service';
+import { GenerateExpectedDosesUseCase } from './application/generate-expected-doses.use-case';
 import { GetTreatmentInsightUseCase } from './application/get-treatment-insight.use-case';
 import { ListInventoryLotsUseCase } from './application/list-inventory-lots.use-case';
 import { ListDoseEventsUseCase } from './application/list-dose-events.use-case';
+import { ListExpectedDosesUseCase } from './application/list-expected-doses.use-case';
 import { RecordInventoryMovementUseCase } from './application/record-inventory-movement.use-case';
 import { RecordDoseEventUseCase } from './application/record-dose-event.use-case';
 import { CreateMedicationUseCase } from './application/create-medication.use-case';
@@ -16,12 +18,15 @@ import { ListPatientTreatmentsUseCase } from './application/list-patient-treatme
 import { ListPresentationsUseCase } from './application/list-presentations.use-case';
 import { MEDICATION_INVENTORY_REPOSITORY } from './domain/medication-inventory.repository';
 import { MEDICATION_REPOSITORY } from './domain/medication.repository';
+import { EXPECTED_DOSE_REPOSITORY } from './domain/expected-dose.repository';
 import { TREATMENT_LIFECYCLE_REPOSITORY } from './domain/treatment-lifecycle.repository';
 import { MedicationInventoryController } from './http/medication-inventory.controller';
 import { MedicationsController } from './http/medications.controller';
+import { ExpectedDoseController } from './http/expected-dose.controller';
 import { TreatmentLifecycleController } from './http/treatment-lifecycle.controller';
 import { PostgresMedicationInventoryRepository } from './infrastructure/postgres-medication-inventory.repository';
 import { PostgresMedicationRepository } from './infrastructure/postgres-medication.repository';
+import { PostgresExpectedDoseRepository } from './infrastructure/postgres-expected-dose.repository';
 import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-treatment-lifecycle.repository';
 
 @Module({
@@ -30,6 +35,7 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     MedicationsController,
     MedicationInventoryController,
     TreatmentLifecycleController,
+    ExpectedDoseController,
   ],
   providers: [
     CreateMedicationUseCase,
@@ -43,6 +49,8 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     RecordInventoryMovementUseCase,
     DoseConversionService,
     GetTreatmentInsightUseCase,
+    GenerateExpectedDosesUseCase,
+    ListExpectedDosesUseCase,
     ChangeTreatmentStatusUseCase,
     RecordDoseEventUseCase,
     ListDoseEventsUseCase,
@@ -57,6 +65,10 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     {
       provide: TREATMENT_LIFECYCLE_REPOSITORY,
       useClass: PostgresTreatmentLifecycleRepository,
+    },
+    {
+      provide: EXPECTED_DOSE_REPOSITORY,
+      useClass: PostgresExpectedDoseRepository,
     },
   ],
 })

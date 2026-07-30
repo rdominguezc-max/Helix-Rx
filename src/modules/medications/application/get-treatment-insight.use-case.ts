@@ -18,6 +18,7 @@ export interface GetTreatmentInsightQuery {
   windowDays?: number;
   lowInventoryDays?: number;
   expirationWarningDays?: number;
+  missedGraceMinutes?: number;
   asOf?: Date;
 }
 
@@ -54,6 +55,12 @@ export class GetTreatmentInsightUseCase {
       1,
       365,
     );
+    const missedGraceMinutes = this.integerWithin(
+      query.missedGraceMinutes ?? 60,
+      'missedGraceMinutes',
+      0,
+      1440,
+    );
     const asOf = query.asOf ?? new Date();
     if (Number.isNaN(asOf.getTime())) throw new Error('asOf must be valid');
     const windowStartsAt = new Date(
@@ -65,6 +72,7 @@ export class GetTreatmentInsightUseCase {
       query.treatmentId,
       windowStartsAt,
       asOf,
+      missedGraceMinutes,
     );
 
     return {
@@ -104,7 +112,8 @@ export class GetTreatmentInsightUseCase {
     const omittedDoses = count('omitted');
     const cancelledDoses = count('cancelled');
     const onTimeDoses = count('confirmed', 'on_time');
-    const adherenceDenominator = confirmedDoses + omittedDoses;
+    const adherenceDenominator =
+      confirmedDoses + omittedDoses + source.unrecordedDoses;
 
     return {
       windowStartsAt,
@@ -113,6 +122,8 @@ export class GetTreatmentInsightUseCase {
       confirmedDoses,
       omittedDoses,
       cancelledDoses,
+      expectedDoses: source.expectedDoses,
+      unrecordedDoses: source.unrecordedDoses,
       adherenceRate:
         adherenceDenominator === 0
           ? null

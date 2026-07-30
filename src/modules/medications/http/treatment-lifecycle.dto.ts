@@ -18,6 +18,7 @@ export interface TreatmentInsightQueryDto {
   windowDays?: string;
   lowInventoryDays?: string;
   expirationWarningDays?: string;
+  missedGraceMinutes?: string;
   asOf?: string;
 }
 
