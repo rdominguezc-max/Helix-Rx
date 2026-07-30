@@ -16,6 +16,7 @@ import { SetNotificationPreferenceUseCase } from './application/set-notification
 import { RegisterNotificationDestinationUseCase } from './application/register-notification-destination.use-case';
 import { ListNotificationDestinationsUseCase } from './application/list-notification-destinations.use-case';
 import { ChangeNotificationDestinationStatusUseCase } from './application/change-notification-destination-status.use-case';
+import { SendPushNotificationUseCase } from './application/send-push-notification.use-case';
 import { RecordInventoryMovementUseCase } from './application/record-inventory-movement.use-case';
 import { RecordDoseEventUseCase } from './application/record-dose-event.use-case';
 import { CreateMedicationUseCase } from './application/create-medication.use-case';
@@ -29,6 +30,7 @@ import { MEDICATION_REPOSITORY } from './domain/medication.repository';
 import { NOTIFICATION_REPOSITORY } from './domain/notification.repository';
 import { EXPECTED_DOSE_REPOSITORY } from './domain/expected-dose.repository';
 import { TREATMENT_LIFECYCLE_REPOSITORY } from './domain/treatment-lifecycle.repository';
+import { PUSH_NOTIFICATION_PROVIDER } from './domain/push-notification-provider';
 import { MedicationInventoryController } from './http/medication-inventory.controller';
 import { MedicationsController } from './http/medications.controller';
 import { NotificationController } from './http/notification.controller';
@@ -39,6 +41,7 @@ import { PostgresMedicationRepository } from './infrastructure/postgres-medicati
 import { PostgresNotificationRepository } from './infrastructure/postgres-notification.repository';
 import { PostgresExpectedDoseRepository } from './infrastructure/postgres-expected-dose.repository';
 import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-treatment-lifecycle.repository';
+import { FirebasePushNotificationProvider } from './infrastructure/firebase-push-notification.provider';
 
 @Module({
   imports: [AuditModule],
@@ -71,6 +74,7 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     RegisterNotificationDestinationUseCase,
     ListNotificationDestinationsUseCase,
     ChangeNotificationDestinationStatusUseCase,
+    SendPushNotificationUseCase,
     ChangeTreatmentStatusUseCase,
     RecordDoseEventUseCase,
     ListDoseEventsUseCase,
@@ -93,6 +97,10 @@ import { PostgresTreatmentLifecycleRepository } from './infrastructure/postgres-
     {
       provide: NOTIFICATION_REPOSITORY,
       useClass: PostgresNotificationRepository,
+    },
+    {
+      provide: PUSH_NOTIFICATION_PROVIDER,
+      useClass: FirebasePushNotificationProvider,
     },
   ],
 })

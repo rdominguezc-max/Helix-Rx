@@ -26,11 +26,14 @@ Se implemento la primera base del Reminder & Notification Engine:
 * cancelacion del recordatorio cuando la dosis ya tiene resultado.
 * destinos verificados con referencias opacas y etiquetas enmascaradas;
 * permisos dedicados `notifications.read` y `notifications.write`.
+* adaptador push real para Firebase Cloud Messaging;
+* contenido push minimo sin identificadores del paciente ni datos clinicos.
 
 # Alcance
 
-Esta base no envia mensajes reales. No contiene credenciales, SDKs ni payloads
-de proveedores.
+La base puede enviar push mediante Firebase Cloud Messaging cuando las
+credenciales Firebase estan configuradas. Las credenciales permanecen en el
+entorno y no se almacenan en PostgreSQL.
 
 El objetivo es separar:
 
@@ -156,11 +159,12 @@ CI aprobo:
 
 # Siguiente Incremento
 
-**Provider Adapters**
+**Worker Push Y Reintentos**
 
 Debe incluir:
 
-* adaptador push inicial;
+* resolver referencias opacas hacia tokens fuera de PostgreSQL;
+* trabajador programado para reclamar y enviar push;
 * reintentos con backoff y limite;
 * webhooks idempotentes del proveedor;
 * modelo verificable de consentimiento para terceros.
