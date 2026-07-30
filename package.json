@@ -1,0 +1,47 @@
+{
+  "name": "helix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "helix healthcare continuity platform",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22 <25",
+    "pnpm": ">=11"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "bootstrap:patient-access": "tsx scripts/bootstrap-patient-access.ts",
+    "ci": "pnpm lint && pnpm typecheck && pnpm build && pnpm test",
+    "lint": "eslint .",
+    "migrate": "tsx scripts/migrate.ts",
+    "start": "node dist/main.js",
+    "start:dev": "tsx watch src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "firebase-admin": "^13.0.0",
+    "pg": "^8.13.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@nestjs/testing": "^11.1.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/supertest": "^6.0.0",
+    "eslint": "^9.30.0",
+    "supertest": "^7.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.0"
+  }
+}
+
+

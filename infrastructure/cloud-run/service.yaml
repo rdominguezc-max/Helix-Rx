@@ -1,0 +1,52 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: helix-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+    spec:
+      containerConcurrency: 80
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/helix/helix-api:TAG
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: APP_NAME
+              value: helix
+            - name: DATABASE_HOST
+              value: CLOUD_SQL_PRIVATE_IP_OR_HOST
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_USER
+              value: helix
+            - name: DATABASE_NAME
+              value: helix
+            - name: DATABASE_SSL
+              value: "true"
+            - name: FIREBASE_PROJECT_ID
+              value: FIREBASE_PROJECT_ID
+            - name: FIREBASE_CLIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-client-email
+                  key: latest
+            - name: FIREBASE_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-private-key
+                  key: latest
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-password
+                  key: latest
