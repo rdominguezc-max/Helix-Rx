@@ -17,6 +17,10 @@ async function main(): Promise<void> {
     user: process.env.DATABASE_USER ?? 'helix',
     password: process.env.DATABASE_PASSWORD ?? 'helix_dev_password',
     database: process.env.DATABASE_NAME ?? 'helix_dev',
+    ssl:
+      process.env.DATABASE_SSL === 'true'
+        ? { rejectUnauthorized: true }
+        : false,
   });
   const client = await pool.connect();
   try {
@@ -174,6 +178,13 @@ async function main(): Promise<void> {
          AND event.scheduled_for = expected.scheduled_for
          AND expected.medication_dose_event_id IS NULL`,
       [ids.treatment],
+    );
+    await client.query(
+      `UPDATE feature_flags
+       SET enabled = true,
+           updated_at = now()
+       WHERE key = 'auth.firebase.enabled'
+         AND organization_id IS NULL`,
     );
     await client.query('COMMIT');
     console.log(JSON.stringify(ids, null, 2));

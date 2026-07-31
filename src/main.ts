@@ -14,7 +14,7 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ['authorization', 'content-type', 'x-organization-id'],
   });
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 }
 
 void bootstrap();

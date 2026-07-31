@@ -1,0 +1,76 @@
+databases:
+  - name: helix-rx-postgres
+    databaseName: helix
+    user: helix
+    plan: free
+
+services:
+  - type: web
+    name: helix-rx-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm migrate && pnpm seed:mvp-demo && pnpm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_NAME
+        value: helix
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: helix-rx-postgres
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: helix-rx-postgres
+          property: port
+      - key: DATABASE_USER
+        fromDatabase:
+          name: helix-rx-postgres
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: helix-rx-postgres
+          property: password
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: helix-rx-postgres
+          property: database
+      - key: DATABASE_SSL
+        value: "false"
+      - key: CORS_ORIGINS
+        value: https://helix-rx-mvp.onrender.com
+      - key: FIREBASE_PROJECT_ID
+        value: helix-mvp
+
+  - type: web
+    name: helix-rx-mvp
+    runtime: node
+    plan: free
+    rootDir: prototype
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SITE_URL
+        value: https://helix-rx-mvp.onrender.com
+      - key: NEXT_PUBLIC_HELIX_API_URL
+        value: https://helix-rx-api.onrender.com/api/v1
+      - key: NEXT_PUBLIC_HELIX_ORGANIZATION_ID
+        value: 10000000-0000-4000-8000-000000000001
+      - key: NEXT_PUBLIC_HELIX_PATIENT_ID
+        value: 30000000-0000-4000-8000-000000000001
+      - key: NEXT_PUBLIC_HELIX_TREATMENT_ID
+        value: 60000000-0000-4000-8000-000000000001
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        value: helix-mvp.firebaseapp.com
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        value: helix-mvp
+      - key: NEXT_PUBLIC_FIREBASE_APP_ID
+        sync: false
