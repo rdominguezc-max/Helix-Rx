@@ -8,7 +8,12 @@ import {
   logout,
   observeAuth,
 } from "../lib/firebase-client";
-import { liveApiConfigured, recordDoseTaken } from "../lib/helix-api";
+import {
+  liveApiConfigured,
+  loadTodayDashboard,
+  recordDoseTaken,
+  type DashboardData,
+} from "../lib/helix-api";
 
 type View = "Hoy" | "Tratamiento" | "Progreso" | "Alertas";
 
@@ -27,6 +32,8 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [authError, setAuthError] = useState("");
   const [savingDose, setSavingDose] = useState(false);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loadingLive, setLoadingLive] = useState(false);
 
   useEffect(
     () =>
@@ -37,6 +44,31 @@ export default function Home() {
     [],
   );
 
+  useEffect(() => {
+    if (!user || !liveApiConfigured) {
+      setDashboard(null);
+      return;
+    }
+    setLoadingLive(true);
+    void loadTodayDashboard(user)
+      .then(setDashboard)
+      .catch((error) =>
+        setAuthError(
+          error instanceof Error ? error.message : "No se pudo cargar el panel",
+        ),
+      )
+      .finally(() => setLoadingLive(false));
+  }, [user]);
+
+  const nextDose = dashboard?.doses.find((dose) => dose.status === "scheduled");
+  const medicationName = dashboard?.medicationName ?? "Levetiracetam";
+  const doseLabel = dashboard?.doseLabel ?? "500 mg · 1 tableta";
+  const adherence = Math.round((dashboard?.adherenceRate ?? 0.92) * 100);
+  const inventoryDays = Math.max(
+    0,
+    Math.round(dashboard?.estimatedDaysRemaining ?? 6),
+  );
+
   async function markDoseTaken() {
     setAuthError("");
     if (!user || !liveApiConfigured) {
@@ -45,10 +77,25 @@ export default function Home() {
     }
     setSavingDose(true);
     try {
-      const scheduled = new Date();
-      scheduled.setHours(9, 0, 0, 0);
-      await recordDoseTaken(user, scheduled.toISOString());
+      const scheduledFor = nextDose?.scheduledFor ?? (() => {
+        const scheduled = new Date();
+        scheduled.setHours(9, 0, 0, 0);
+        return scheduled.toISOString();
+      })();
+      await recordDoseTaken(user, scheduledFor);
       setDoseTaken(true);
+      setDashboard((current) =>
+        current
+          ? {
+              ...current,
+              doses: current.doses.map((dose) =>
+                dose.scheduledFor === scheduledFor
+                  ? { ...dose, status: "fulfilled" }
+                  : dose,
+              ),
+            }
+          : current,
+      );
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : "No se pudo registrar la dosis",
@@ -99,7 +146,7 @@ export default function Home() {
         <div className={user && liveApiConfigured ? "modeBanner live" : "modeBanner"}>
           <span>
             {user && liveApiConfigured
-              ? "● Conectado a Helix"
+              ? loadingLive ? "● Sincronizando con Helix…" : "● Conectado a Helix"
               : "Vista demostrativa · datos simulados"}
           </span>
           {firebaseConfigured && !user && (
@@ -123,7 +170,7 @@ export default function Home() {
                 <h2>{doseTaken ? "Dosis registrada" : "En 24 minutos"}</h2>
                 <div className="medicineLine">
                   <span className="pillIcon">●</span>
-                  <div><strong>Levetiracetam</strong><small>500 mg · 1 tableta</small></div>
+                  <div><strong>{medicationName}</strong><small>{doseLabel}</small></div>
                 </div>
                 <div className="heroActions">
                   <button
@@ -149,14 +196,14 @@ export default function Home() {
             <section className="stats">
               <article>
                 <div className="statTop"><span>Adherencia</span><b className="good">↗ 4%</b></div>
-                <strong>92%</strong>
-                <div className="bar"><i style={{ width: "92%" }} /></div>
+                <strong>{adherence}%</strong>
+                <div className="bar"><i style={{ width: `${adherence}%` }} /></div>
                 <small>Últimos 30 días</small>
               </article>
               <article>
                 <div className="statTop"><span>Inventario</span><b className="warn">Bajo</b></div>
-                <strong>6 días</strong>
-                <div className="bar amber"><i style={{ width: "28%" }} /></div>
+                <strong>{inventoryDays} días</strong>
+                <div className="bar amber"><i style={{ width: `${Math.min(100, inventoryDays / 21 * 100)}%` }} /></div>
                 <small>Solicita resurtido esta semana</small>
               </article>
               <article>
@@ -171,14 +218,14 @@ export default function Home() {
               <section className="panel schedule">
                 <div className="panelHead"><div><p className="eyebrow">PLAN DE HOY</p><h3>Tus dosis</h3></div><button>Ver calendario</button></div>
                 <Dose time="07:00" title="Lamotrigina" detail="100 mg · 1 tableta" status="Tomada" done />
-                <Dose time="09:00" title="Levetiracetam" detail="500 mg · 1 tableta" status={doseTaken ? "Tomada" : "Próxima"} active={!doseTaken} done={doseTaken} />
-                <Dose time="21:00" title="Levetiracetam" detail="500 mg · 1 tableta" status="Esta noche" />
+                <Dose time={doseTime(nextDose?.scheduledFor, "09:00")} title={medicationName} detail={doseLabel} status={doseTaken ? "Tomada" : "Próxima"} active={!doseTaken} done={doseTaken} />
+                <Dose time={doseTime(dashboard?.doses.filter((dose) => dose.status === "scheduled")[1]?.scheduledFor, "21:00")} title={medicationName} detail={doseLabel} status="Esta noche" />
               </section>
               <section className="panel alertPanel">
                 <div className="panelHead"><div><p className="eyebrow">ATENCIÓN</p><h3>Para cuidar tu continuidad</h3></div><span className="alertIcon">!</span></div>
                 <div className="alertBody">
                   <span className="bottle">▥</span>
-                  <div><strong>Levetiracetam por agotarse</strong><p>Te quedan aproximadamente 6 días de tratamiento.</p></div>
+                  <div><strong>{medicationName} por agotarse</strong><p>Te quedan aproximadamente {inventoryDays} días de tratamiento.</p></div>
                 </div>
                 <button className="outline">Solicitar resurtido</button>
               </section>
@@ -274,6 +321,15 @@ function subtitle(view: View) {
   if (view === "Tratamiento") return "Medicamentos activos, horarios e inventario.";
   if (view === "Progreso") return "Una vista clara de tu constancia durante el último mes.";
   return "Revisa lo que necesita tu atención.";
+}
+
+function doseTime(value: string | undefined, fallback: string) {
+  if (!value) return fallback;
+  return new Intl.DateTimeFormat("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
 }
 
 function Dose({ time, title, detail, status, done, active }: { time: string; title: string; detail: string; status: string; done?: boolean; active?: boolean }) {

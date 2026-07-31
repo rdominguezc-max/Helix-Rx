@@ -9,6 +9,21 @@ export const liveApiConfigured = Boolean(
   apiUrl && organizationId && patientId && treatmentId,
 );
 
+export interface DashboardDose {
+  id: string;
+  scheduledFor: string;
+  status: "scheduled" | "fulfilled" | "cancelled" | "missed";
+}
+
+export interface DashboardData {
+  medicationName: string;
+  doseLabel: string;
+  adherenceRate: number | null;
+  estimatedDaysRemaining: number | null;
+  riskLevel: string;
+  doses: DashboardDose[];
+}
+
 async function request<T>(
   user: User,
   path: string,
@@ -47,4 +62,48 @@ export async function recordDoseTaken(user: User, scheduledFor: string) {
       }),
     },
   );
+}
+
+export async function loadTodayDashboard(user: User): Promise<DashboardData> {
+  if (!patientId || !treatmentId) throw new Error("Tratamiento no configurado");
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  const [treatments, medications, insight, doses] = await Promise.all([
+    request<Array<{
+      id: string;
+      medicationId: string;
+      doseAmount: number;
+      doseUnit: string;
+    }>>(user, `/patients/${patientId}/treatments`),
+    request<Array<{ id: string; genericName: string }>>(user, "/medications"),
+    request<{
+      adherence: { adherenceRate: number | null };
+      inventory: {
+        estimatedDaysRemaining: number | null;
+        riskLevel: string;
+      };
+    }>(user, `/patients/${patientId}/treatments/${treatmentId}/insight`),
+    request<DashboardDose[]>(
+      user,
+      `/patients/${patientId}/treatments/${treatmentId}/expected-doses?windowStartsAt=${encodeURIComponent(start.toISOString())}&windowEndsAt=${encodeURIComponent(end.toISOString())}`,
+    ),
+  ]);
+  const treatment = treatments.find((item) => item.id === treatmentId);
+  const medication = medications.find(
+    (item) => item.id === treatment?.medicationId,
+  );
+
+  return {
+    medicationName: medication?.genericName ?? "Medicamento",
+    doseLabel: treatment
+      ? `${treatment.doseAmount} ${treatment.doseUnit}`
+      : "Dosis indicada",
+    adherenceRate: insight.adherence.adherenceRate,
+    estimatedDaysRemaining: insight.inventory.estimatedDaysRemaining,
+    riskLevel: insight.inventory.riskLevel,
+    doses,
+  };
 }
