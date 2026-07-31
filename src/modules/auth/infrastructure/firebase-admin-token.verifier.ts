@@ -42,17 +42,21 @@ export class FirebaseAdminTokenVerifier implements FirebaseTokenVerifier {
     const clientEmail = this.configService.get<string>('firebase.clientEmail');
     const privateKey = this.configService.get<string>('firebase.privateKey');
 
-    if (!projectId || !clientEmail || !privateKey) {
-      throw new Error('firebase admin credentials are not configured');
+    if (!projectId) {
+      throw new Error('firebase project id is not configured');
     }
 
-    this.app = initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-    });
+    this.app =
+      clientEmail && privateKey
+        ? initializeApp({
+            credential: cert({
+              projectId,
+              clientEmail,
+              privateKey,
+            }),
+            projectId,
+          })
+        : initializeApp({ projectId });
 
     return this.app;
   }
