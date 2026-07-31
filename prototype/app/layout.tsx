@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
 
@@ -7,6 +7,17 @@ const serif = Newsreader({ variable: "--font-serif", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
+  applicationName: "Helix",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Helix",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
   title: "Helix — Tu tratamiento, en orden",
   description: "Prototipo visual de continuidad del tratamiento Helix.",
   openGraph: {
@@ -22,6 +33,10 @@ export const metadata: Metadata = {
     description: "Tratamiento, dosis, adherencia e inventario en una sola vista.",
     images: ["/og.png"],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#153f35",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

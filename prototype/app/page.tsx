@@ -14,6 +14,7 @@ import {
   recordDoseTaken,
   type DashboardData,
 } from "../lib/helix-api";
+import { PwaInstallButton } from "./pwa-install-button";
 
 type View = "Hoy" | "Tratamiento" | "Progreso" | "Alertas";
 
@@ -149,9 +150,12 @@ export default function Home() {
               ? loadingLive ? "● Sincronizando con Helix…" : "● Conectado a Helix"
               : "Vista demostrativa · datos simulados"}
           </span>
-          {firebaseConfigured && !user && (
-            <button onClick={() => setShowLogin(true)}>Iniciar sesión</button>
-          )}
+          <div className="modeActions">
+            <PwaInstallButton />
+            {firebaseConfigured && !user && (
+              <button onClick={() => setShowLogin(true)}>Iniciar sesión</button>
+            )}
+          </div>
         </div>
         <header>
           <div>
