@@ -165,11 +165,25 @@ No se realiza despliegue real en Sprint 1.
 ## Limitaciones Actuales
 
 * Docker Desktop y PostgreSQL 17 fueron validados en runtime local.
-* Las migraciones `001` a `015` fueron ejecutadas correctamente contra PostgreSQL real.
+* Las migraciones `001` a `016` fueron ejecutadas correctamente contra PostgreSQL real.
 * Cloud Run contiene placeholders.
-* No existe frontend.
-* No existen modulos clinicos posteriores a Patient.
-* `/me` requiere Firebase real y feature flag activo para uso end-to-end.
+* Existe un prototipo web funcional en `prototype/`, todavía pendiente de
+  credenciales Firebase reales y publicación en un ambiente remoto.
+* El flujo end-to-end autenticado requiere Firebase real y el feature flag
+  `auth.firebase.enabled`.
+
+## Datos locales del MVP
+
+Después de ejecutar las migraciones, se puede preparar un paciente de prueba
+repetible con:
+
+```bash
+pnpm seed:mvp-demo
+```
+
+La carga incluye organización, usuario paciente, tratamiento activo,
+inventario, dosis esperadas e historial de adherencia. Los identificadores
+impresos por el comando pueden copiarse a `prototype/.env.local`.
 
 ## Documentacion Oficial
 

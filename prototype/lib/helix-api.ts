@@ -57,7 +57,7 @@ export async function recordDoseTaken(user: User, scheduledFor: string) {
       body: JSON.stringify({
         scheduledFor,
         occurredAt: new Date().toISOString(),
-        eventStatus: "taken",
+        eventStatus: "confirmed",
         idempotencyKey: `web-${treatmentId}-${scheduledFor}`,
       }),
     },

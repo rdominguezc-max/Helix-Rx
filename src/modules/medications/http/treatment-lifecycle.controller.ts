@@ -53,7 +53,7 @@ export class TreatmentLifecycleController {
   }
 
   @Post('dose-events')
-  @RequiredPermissions('medications.write')
+  @RequiredPermissions('adherence.write')
   async recordDoseEvent(@Param('patientId') patientId: string, @Param('treatmentId') treatmentId: string, @Body() body: RecordDoseEventDto, @AuthenticatedUser() user: AuthenticatedRequestContext | null, @Req() request: HttpRequestWithAuth): Promise<MedicationDoseEvent> {
     try {
       return await this.recordDoseEventUseCase.execute({ patientId, treatmentId, organizationId: this.organizationId(user), actorUserId: user?.userId, scheduledFor: parseLifecycleDate(body.scheduledFor, 'scheduledFor', true)!, eventStatus: body.eventStatus, occurredAt: parseLifecycleDate(body.occurredAt, 'occurredAt'), omissionReason: body.omissionReason, idempotencyKey: body.idempotencyKey, ipAddress: getRequestIp(request), userAgent: getRequestUserAgent(request) });

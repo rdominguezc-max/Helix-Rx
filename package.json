@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit",
     "validate:expected-doses": "tsx scripts/validate-expected-dose-runtime.ts",
     "validate:notifications": "tsx scripts/validate-notification-runtime.ts",
-    "notifications:process-push": "tsx scripts/process-push-notifications.ts"
+    "notifications:process-push": "tsx scripts/process-push-notifications.ts",
+    "seed:mvp-demo": "tsx scripts/seed-mvp-demo.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.0",
