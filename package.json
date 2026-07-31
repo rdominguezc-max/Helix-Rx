@@ -16,7 +16,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "start": "node dist/main.js",
     "start:dev": "tsx watch src/main.ts",
-    "test": "vitest run",
+    "test": "vitest run --exclude prototype/**",
     "typecheck": "tsc --noEmit",
     "validate:expected-doses": "tsx scripts/validate-expected-dose-runtime.ts",
     "validate:notifications": "tsx scripts/validate-notification-runtime.ts",

@@ -20,6 +20,7 @@ export interface EnvironmentConfig {
   notifications: {
     destinationTokensJson: string | null;
   };
+  corsOrigins: string[];
 }
 
 const allowedNodeEnvironments = new Set<NodeEnvironment>([
@@ -101,5 +102,9 @@ export function loadEnvironment(): EnvironmentConfig {
     notifications: {
       destinationTokensJson: optionalString('NOTIFICATION_DESTINATION_TOKENS_JSON'),
     },
+    corsOrigins: (optionalString('CORS_ORIGINS') ?? 'http://localhost:3000')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   };
 }

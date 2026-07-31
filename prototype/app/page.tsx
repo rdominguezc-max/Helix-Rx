@@ -1,6 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import type { User } from "firebase/auth";
+import {
+  firebaseConfigured,
+  login,
+  logout,
+  observeAuth,
+} from "../lib/firebase-client";
+import { liveApiConfigured, recordDoseTaken } from "../lib/helix-api";
 
 type View = "Hoy" | "Tratamiento" | "Progreso" | "Alertas";
 
@@ -14,6 +22,41 @@ const nav: { label: View; glyph: string }[] = [
 export default function Home() {
   const [view, setView] = useState<View>("Hoy");
   const [doseTaken, setDoseTaken] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(!firebaseConfigured);
+  const [showLogin, setShowLogin] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [savingDose, setSavingDose] = useState(false);
+
+  useEffect(
+    () =>
+      observeAuth((nextUser) => {
+        setUser(nextUser);
+        setAuthReady(true);
+      }),
+    [],
+  );
+
+  async function markDoseTaken() {
+    setAuthError("");
+    if (!user || !liveApiConfigured) {
+      setDoseTaken(true);
+      return;
+    }
+    setSavingDose(true);
+    try {
+      const scheduled = new Date();
+      scheduled.setHours(9, 0, 0, 0);
+      await recordDoseTaken(user, scheduled.toISOString());
+      setDoseTaken(true);
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "No se pudo registrar la dosis",
+      );
+    } finally {
+      setSavingDose(false);
+    }
+  }
 
   return (
     <main className="shell">
@@ -39,12 +82,30 @@ export default function Home() {
         </div>
         <div className="profile">
           <div className="avatar">RM</div>
-          <div><strong>Roberto M.</strong><small>Paciente</small></div>
-          <button aria-label="Más opciones">•••</button>
+          <div>
+            <strong>{user?.displayName ?? user?.email ?? "Roberto M."}</strong>
+            <small>{user ? "Sesión conectada" : "Modo demostración"}</small>
+          </div>
+          <button
+            aria-label={user ? "Cerrar sesión" : "Iniciar sesión"}
+            onClick={() => user ? void logout() : setShowLogin(true)}
+          >
+            {user ? "↪" : "•••"}
+          </button>
         </div>
       </aside>
 
       <section className="content">
+        <div className={user && liveApiConfigured ? "modeBanner live" : "modeBanner"}>
+          <span>
+            {user && liveApiConfigured
+              ? "● Conectado a Helix"
+              : "Vista demostrativa · datos simulados"}
+          </span>
+          {firebaseConfigured && !user && (
+            <button onClick={() => setShowLogin(true)}>Iniciar sesión</button>
+          )}
+        </div>
         <header>
           <div>
             <p className="eyebrow">JUEVES, 30 DE JULIO</p>
@@ -65,8 +126,16 @@ export default function Home() {
                   <div><strong>Levetiracetam</strong><small>500 mg · 1 tableta</small></div>
                 </div>
                 <div className="heroActions">
-                  <button className="primary" onClick={() => setDoseTaken(true)}>
-                    {doseTaken ? "✓ Tomada a las 9:00" : "Marcar como tomada"}
+                  <button
+                    className="primary"
+                    onClick={() => void markDoseTaken()}
+                    disabled={savingDose}
+                  >
+                    {doseTaken
+                      ? "✓ Tomada a las 9:00"
+                      : savingDose
+                        ? "Registrando…"
+                        : "Marcar como tomada"}
                   </button>
                   {!doseTaken && <button className="ghost">Recordar en 10 min</button>}
                 </div>
@@ -121,7 +190,82 @@ export default function Home() {
         {view === "Progreso" && <Progress />}
         {view === "Alertas" && <Alerts />}
       </section>
+      {showLogin && (
+        <LoginDialog
+          onClose={() => setShowLogin(false)}
+          onError={setAuthError}
+        />
+      )}
+      {authReady && authError && (
+        <div className="toast" role="alert">
+          {authError}
+          <button onClick={() => setAuthError("")}>×</button>
+        </div>
+      )}
     </main>
+  );
+}
+
+function LoginDialog({
+  onClose,
+  onError,
+}: {
+  onClose: () => void;
+  onError: (value: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    onError("");
+    try {
+      await login(String(data.get("email")), String(data.get("password")));
+      onClose();
+    } catch {
+      onError(
+        "No fue posible iniciar sesión. Verifica el correo y la contraseña.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="dialogBackdrop" role="presentation">
+      <section
+        className="loginDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="login-title"
+      >
+        <button className="dialogClose" onClick={onClose} aria-label="Cerrar">×</button>
+        <div className="brand dark"><span className="brandMark">h</span> helix</div>
+        <p className="eyebrow">ACCESO SEGURO</p>
+        <h2 id="login-title">Entra a tu tratamiento</h2>
+        <p>Usa la cuenta registrada por tu equipo de cuidado.</p>
+        <form onSubmit={(event) => void submit(event)}>
+          <label>
+            Correo electrónico
+            <input name="email" type="email" autoComplete="email" required />
+          </label>
+          <label>
+            Contraseña
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          <button className="primary" disabled={busy}>
+            {busy ? "Ingresando…" : "Iniciar sesión"}
+          </button>
+        </form>
+        <small>Tu sesión se valida directamente con Firebase.</small>
+      </section>
+    </div>
   );
 }
 
