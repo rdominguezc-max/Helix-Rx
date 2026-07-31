@@ -10,7 +10,7 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
     startCommand: pnpm migrate && pnpm seed:mvp-demo && pnpm start
     healthCheckPath: /api/v1/health
     envVars:
@@ -50,7 +50,7 @@ services:
     runtime: node
     plan: free
     rootDir: prototype
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /
     envVars:
