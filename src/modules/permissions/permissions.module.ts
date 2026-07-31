@@ -19,6 +19,7 @@ import { PostgresPermissionRepository } from './infrastructure/postgres-permissi
     CreatePermissionUseCase,
     FindPermissionByCodeUseCase,
     ListActivePermissionsUseCase,
+    PERMISSION_REPOSITORY,
   ],
 })
 export class PermissionsModule {}

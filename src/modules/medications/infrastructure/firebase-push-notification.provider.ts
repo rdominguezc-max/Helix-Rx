@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getMessaging, type Messaging } from 'firebase-admin/messaging';
@@ -18,6 +18,7 @@ export class FirebasePushNotificationProvider
 
   constructor(
     private readonly configService: ConfigService,
+    @Optional()
     private readonly messagingFactory: MessagingFactory = getMessaging,
   ) {}
 

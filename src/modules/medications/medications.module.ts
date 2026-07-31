@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { AuthModule } from '../auth/auth.module';
+import { AuthorizationModule } from '../authorization/authorization.module';
 import { AddInventoryLotUseCase } from './application/add-inventory-lot.use-case';
 import { ChangeTreatmentStatusUseCase } from './application/change-treatment-status.use-case';
 import { ClaimNotificationJobsUseCase } from './application/claim-notification-jobs.use-case';
@@ -47,7 +49,7 @@ import { FirebasePushNotificationProvider } from './infrastructure/firebase-push
 import { EnvironmentNotificationDestinationResolver } from './infrastructure/environment-notification-destination.resolver';
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, AuthModule, AuthorizationModule],
   controllers: [
     MedicationsController,
     MedicationInventoryController,
