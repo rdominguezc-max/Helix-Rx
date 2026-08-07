@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import {
   IsPasswordRecoveryAdministratorUseCase,
@@ -11,7 +12,7 @@ import { PasswordRecoveryController } from './http/password-recovery.controller'
 import { PostgresPasswordRecoveryRepository } from './infrastructure/postgres-password-recovery.repository';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuditModule, AuthModule],
   controllers: [PasswordRecoveryController],
   providers: [
     RequestPasswordRecoveryUseCase,
