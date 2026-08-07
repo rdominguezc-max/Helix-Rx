@@ -11,6 +11,7 @@ import { HealthModule } from './modules/health/health.module';
 import { MedicationsModule } from './modules/medications/medications.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PatientsModule } from './modules/patients/patients.module';
+import { PasswordRecoveryModule } from './modules/password-recovery/password-recovery.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { UsersModule } from './modules/users/users.module';
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/users/users.module';
     MedicationsModule,
     OrganizationsModule,
     PatientsModule,
+    PasswordRecoveryModule,
     PermissionsModule,
     RolesModule,
     UsersModule,

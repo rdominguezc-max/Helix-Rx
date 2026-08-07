@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
+import "./password-recovery.css";
 
 const sans = Manrope({ variable: "--font-sans", subsets: ["latin"] });
 const serif = Newsreader({ variable: "--font-serif", subsets: ["latin"] });

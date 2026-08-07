@@ -14,6 +14,12 @@ import {
   recordDoseTaken,
   type DashboardData,
 } from "../lib/helix-api";
+import {
+  listPasswordRecoveryRequests,
+  requestPasswordRecovery,
+  resolvePasswordRecoveryRequest,
+  type PasswordRecoveryRequest,
+} from "../lib/password-recovery-api";
 import { PwaInstallButton } from "./pwa-install-button";
 
 type View = "Hoy" | "Tratamiento" | "Progreso" | "Alertas";
@@ -35,6 +41,8 @@ export default function Home() {
   const [savingDose, setSavingDose] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loadingLive, setLoadingLive] = useState(false);
+  const [recoveryRequests, setRecoveryRequests] = useState<PasswordRecoveryRequest[]>([]);
+  const [adminExperience, setAdminExperience] = useState(false);
 
   useEffect(
     () =>
@@ -61,6 +69,29 @@ export default function Home() {
       .finally(() => setLoadingLive(false));
   }, [user]);
 
+
+  useEffect(() => {
+    if (!user) {
+      setRecoveryRequests([]);
+      setAdminExperience(false);
+      return;
+    }
+    void listPasswordRecoveryRequests(user)
+      .then((requests) => {
+        setRecoveryRequests(requests);
+        setAdminExperience(true);
+      })
+      .catch(() => {
+        setRecoveryRequests([]);
+        setAdminExperience(false);
+      });
+  }, [user]);
+
+  async function resolveRecovery(id: string) {
+    if (!user) return;
+    await resolvePasswordRecoveryRequest(user, id);
+    setRecoveryRequests((current) => current.filter((item) => item.id !== id));
+  }
   const nextDose = dashboard?.doses.find((dose) => dose.status === "scheduled");
   const medicationName = dashboard?.medicationName ?? "Levetiracetam";
   const doseLabel = dashboard?.doseLabel ?? "500 mg · 1 tableta";
@@ -118,7 +149,7 @@ export default function Home() {
               onClick={() => setView(item.label)}
             >
               <span>{item.glyph}</span>{item.label}
-              {item.label === "Alertas" && <i>2</i>}
+              {item.label === "Alertas" && <i>{2 + recoveryRequests.length}</i>}
             </button>
           ))}
         </nav>
@@ -239,7 +270,13 @@ export default function Home() {
 
         {view === "Tratamiento" && <Treatment />}
         {view === "Progreso" && <Progress />}
-        {view === "Alertas" && <Alerts />}
+        {view === "Alertas" && (
+          <Alerts
+            recoveryRequests={recoveryRequests}
+            adminExperience={adminExperience}
+            onResolve={(id) => void resolveRecovery(id)}
+          />
+        )}
       </section>
       {showLogin && (
         <LoginDialog
@@ -267,6 +304,9 @@ function LoginDialog({
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
+  const [email, setEmail] = useState("");
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState("");
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     setBusy(true);
@@ -299,7 +339,14 @@ function LoginDialog({
         <form onSubmit={(event) => void submit(event)}>
           <label>
             Correo electrónico
-            <input name="email" type="email" autoComplete="email" required />
+            <input
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
           </label>
           <label>
             Contraseña
@@ -314,6 +361,27 @@ function LoginDialog({
             {busy ? "Ingresando…" : "Iniciar sesión"}
           </button>
         </form>
+          <button
+            className="forgotLink"
+            type="button"
+            disabled={recoveryBusy}
+            onClick={() => {
+              setRecoveryBusy(true);
+              setRecoveryMessage("");
+              void requestPasswordRecovery(email)
+                .then(setRecoveryMessage)
+                .catch((error) => setRecoveryMessage(
+                  error instanceof Error
+                    ? error.message
+                    : "Ingresa un correo electrónico válido",
+                ))
+                .finally(() => setRecoveryBusy(false));
+            }}
+          >
+            {recoveryBusy ? "Enviando solicitud…" : "¿Olvidaste tu contraseña?"}
+          </button>
+        {recoveryMessage && <p className="recoveryMessage" role="status">{recoveryMessage}</p>}
+        <p className="recoveryNote">Por ahora, el administrador dará seguimiento personalmente. Helix no solicita ni envía contraseñas.</p>
         <small>Tu sesión se valida directamente con Firebase.</small>
       </section>
     </div>
@@ -361,8 +429,43 @@ function Progress() {
   </div>;
 }
 
-function Alerts() {
+function Alerts({
+  recoveryRequests,
+  adminExperience,
+  onResolve,
+}: {
+  recoveryRequests: PasswordRecoveryRequest[];
+  adminExperience: boolean;
+  onResolve: (id: string) => void;
+}) {
   return <section className="panel alertsList">
+    {adminExperience && (
+      <div className="adminRecoveryGroup">
+        <div className="panelHead">
+          <div>
+            <p className="eyebrow">ADMINISTRACIÓN</p>
+            <h3>Solicitudes de recuperación</h3>
+          </div>
+          <b className="warn">{recoveryRequests.length} pendientes</b>
+        </div>
+        {recoveryRequests.length === 0 && (
+          <p className="emptyRecovery">No hay solicitudes pendientes.</p>
+        )}
+        {recoveryRequests.map((request) => (
+          <div className="alertRow recoveryAlert" key={request.id}>
+            <span>↺</span>
+            <div>
+              <strong>{request.email}</strong>
+              <p>{new Intl.DateTimeFormat("es-MX", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(request.createdAt))}</p>
+            </div>
+            <button onClick={() => onResolve(request.id)}>Marcar resuelta</button>
+          </div>
+        ))}
+      </div>
+    )}
     <div className="alertRow urgent"><span>!</span><div><strong>Inventario bajo</strong><p>Levetiracetam podría agotarse en 6 días.</p></div><button>Resolver</button></div>
     <div className="alertRow"><span>↗</span><div><strong>Tu adherencia mejoró</strong><p>Subiste 4% respecto al periodo anterior.</p></div><button>Ver progreso</button></div>
   </section>;
